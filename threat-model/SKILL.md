@@ -33,7 +33,7 @@ Ask clarifying questions:
 
 ### Phase 2: Analyze Existing .tm7
 
-Read the .tm7 file and extract the current state. The .tm7 format is WCF DataContract-serialized XML — see [references/tm7-format.md](references/tm7-format.md) for the full format reference.
+Read the .tm7 file and extract the current state. See [references/tm7-format.md](references/tm7-format.md) for the full format reference.
 
 Extract and present to the user:
 
@@ -67,73 +67,92 @@ Present the plan to the user for approval before proceeding.
 
 ### Phase 4: Generate Update Script
 
-Write a Python script (no external dependencies) that modifies the .tm7 file using string-based XML manipulation. Do NOT use ElementTree or lxml — the .tm7 namespace complexity makes DOM parsing unreliable.
+Write a Python script that uses the builder functions from [references/tm7_builders.py](references/tm7_builders.py). Copy the needed functions into the script — they handle all XML generation and escaping.
 
-#### Script Structure
+#### Script pattern:
 
 ```python
-"""
-Update the Threat Model (.tm7) file.
-Usage: python update_threat_model.py [--input <path>] [--output <path>]
-"""
 import argparse
 
-ABS_NS = "http://schemas.datacontract.org/2004/07/ThreatModeling.Model.Abstracts"
+# Copy builder functions from references/tm7_builders.py:
+#   xml_escape, make_external_interactor, make_process,
+#   make_connector, make_threat,
+#   set_out_of_scope, resize_boundary, rename_data_flow
 
-# 1. Define existing GUIDs (from Phase 2 analysis)
-# 2. Define new GUIDs (deterministic, hardcoded for reproducibility)
-# 3. Define element builder functions
-# 4. Main function:
-#    a. Read the .tm7 file
-#    b. Insert new borders before </Borders>
-#    c. Insert new connectors before </Lines>
-#    d. Insert new threats before </ThreatInstances>
-#    e. Modify trust boundaries / element properties as needed
-#    f. Write the updated file
+DRAWING_SURFACE_GUID = "..."  # from Phase 2
+# ... other existing GUIDs ...
+# ... new deterministic GUIDs ...
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    with open(args.input, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Add new border elements before </Borders>
+    new_borders = []
+    new_borders.append(make_external_interactor(GUID, z_id, "Name", left, top))
+    new_borders.append(make_process(GUID, z_id, "Name", left, top))
+    content = content.replace("</Borders>", "".join(new_borders) + "</Borders>")
+
+    # 2. Add new data flows before </Lines>
+    new_lines = []
+    new_lines.append(make_connector(GUID, z_id, "N. Operation (Auth)",
+        source_guid, target_guid,
+        source_x, source_y, target_x, target_y, handle_x, handle_y))
+    content = content.replace("</Lines>", "".join(new_lines) + "</Lines>")
+
+    # 3. Add new threats before </ThreatInstances>
+    new_threats = []
+    new_threats.append(make_threat(threat_id, "TH7", DRAWING_SURFACE_GUID,
+        source_guid, flow_guid, target_guid,
+        "Threat title", "Spoofing", "Short desc",
+        "Full description", "Flow name", "Mitigations"))
+    content = content.replace("</ThreatInstances>",
+        "".join(new_threats) + "</ThreatInstances>")
+
+    # 4. Modify existing elements
+    content = set_out_of_scope(content, element_guid, "true")
+    content = resize_boundary(content, boundary_guid, left, top, width, height)
+    content = rename_data_flow(content, "old name", "new name")
+
+    with open(args.output or args.input, "w", encoding="utf-8") as f:
+        f.write(content)
+
+if __name__ == "__main__":
+    main()
 ```
 
-#### Building Elements
+#### Available builder functions (see [references/tm7_builders.py](references/tm7_builders.py)):
 
-Use these builder patterns for each element type. See [references/tm7-format.md](references/tm7-format.md) for the full XML structure of each element type.
+| Function | Purpose |
+|----------|---------|
+| `xml_escape(text)` | Escape `&`, `<`, `>` for XML values |
+| `make_external_interactor(guid, z_id, name, left, top, ...)` | Create External Interactor element |
+| `make_process(guid, z_id, name, left, top, ...)` | Create Process element |
+| `make_connector(guid, z_id, name, source_guid, target_guid, ...)` | Create data flow connector |
+| `make_threat(threat_id, type_id, drawing_surface_guid, ...)` | Create STRIDE threat instance |
+| `set_out_of_scope(content, element_guid, value)` | Set Out Of Scope flag on an element |
+| `resize_boundary(content, boundary_guid, left, top, width, height)` | Resize a trust boundary |
+| `rename_data_flow(content, old_name, new_name)` | Rename a flow + update threat references |
 
-**External Interactor** — `StencilRectangle` with `GenericTypeId = GE.EI`
-**Process** — `StencilEllipse` with `GenericTypeId = GE.P`
-**Data Store** — `StencilParallelLines` with `GenericTypeId = GE.DS`
-**Data Flow** — `Connector` with `GenericTypeId = GE.DF`, `TypeId = SE.DF.TMCore.Request`
-**Trust Boundary** — `BorderBoundary` with `GenericTypeId = GE.TB.B`
+All text arguments accept **plain text** — escaping is handled internally.
 
-#### Building Threats
+#### STRIDE Threat Generation
 
-For each new data flow, generate threats covering relevant STRIDE categories:
+For each new data flow, generate threats covering relevant categories:
 
-| Category | When to Apply |
-|----------|--------------|
-| **Spoofing** | Flow uses credentials/tokens — risk of token theft or identity impersonation |
-| **Tampering** | Flow carries data that could be modified — risk of content injection |
-| **Repudiation** | Automated actions without audit trail — risk of unverifiable actions |
-| **Information Disclosure** | Flow carries or produces content that could leak sensitive data |
-| **Denial of Service** | Flow to a shared resource that could be overwhelmed (apply selectively) |
-| **Elevation of Privileges** | Flow grants access or automated entity has elevated permissions |
-
-Each threat needs:
-- A unique sequential `b:Id` (continue from last existing ID)
-- A `TypeId` from the KnowledgeBase (e.g., TH7 for spoofing, TH96 for tampering)
-- Source, flow, and target GUIDs
-- A descriptive title, STRIDE category, description, and possible mitigations
-- The `InteractionString` matching the data flow's display name
-
-#### Key Threat TypeIds
-
-| TypeId | Typical Use |
-|--------|------------|
-| TH7 | Credential/token theft (Spoofing) |
-| TH30 | Insufficient audit trail (Repudiation) |
-| TH86 | Source spoofing to gain access (Spoofing) |
-| TH94 | Sensitive info through error messages (Info Disclosure) |
-| TH96 | Injection / tampering with data (Tampering) |
-| TH101 | Sensitive info in encrypted content (Info Disclosure) |
-| TH108 | Malicious inputs into API (Tampering) |
-| TH110 | Unauthorized access / privilege escalation (EoP) |
+| Category | When to Apply | Typical TypeId |
+|----------|--------------|----------------|
+| **Spoofing** | Flow uses credentials/tokens | TH7, TH86 |
+| **Tampering** | Flow carries modifiable data | TH96, TH108 |
+| **Repudiation** | Automated actions without audit trail | TH30 |
+| **Information Disclosure** | Flow could leak sensitive data | TH94, TH101 |
+| **Denial of Service** | Flow to shared resource (apply selectively) | — |
+| **Elevation of Privileges** | Automated entity has elevated permissions | TH110 |
 
 ### Phase 5: Run and Verify
 
@@ -156,8 +175,8 @@ Tell the user to open the .tm7 in Microsoft Threat Modeling Tool to visually ver
 
 ### XML Manipulation
 - **Always use string-based manipulation** (find/replace) — never DOM parsers for .tm7 files
-- **XML-escape all user-facing text** before inserting: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`
-- **Avoid double-escaping**: if a value is already escaped in the Python source, do not escape it again in the builder function
+- **Pass plain text to builder functions** — they handle XML escaping internally
+- **Avoid double-escaping**: never pre-escape `&` as `&amp;` before passing to builders
 - **Use deterministic GUIDs** for reproducibility — hardcode them as constants
 
 ### Naming Conventions
@@ -181,9 +200,16 @@ Tell the user to open the .tm7 in Microsoft Threat Modeling Tool to visually ver
 - Update it whenever new flows are added
 - Expand the annotation box dimensions to fit additional text
 
+## Reference Files
+
+| File | Purpose |
+|------|---------|
+| [references/tm7_builders.py](references/tm7_builders.py) | Reusable Python builder functions — copy into your script |
+| [references/tm7-format.md](references/tm7-format.md) | .tm7 XML format specification, namespace reference, threat TypeIds |
+
 ## Output Artifacts
 
 When done, produce:
-1. **Python update script** — idempotent where possible, with `--input` / `--output` args
+1. **Python update script** — using builders from `tm7_builders.py`, with `--input` / `--output` args
 2. **Changes summary** (Markdown) — table of all elements, flows, and threats added
 3. **Updated .tm7 file** — ready to open in Microsoft Threat Modeling Tool

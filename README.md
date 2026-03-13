@@ -7,6 +7,7 @@ Personal collection of reusable [Claude Code](https://claude.ai/claude-code) ski
 | Skill | Description |
 |-------|-------------|
 | [review-design](./review-design/) | Interactive design document review against a codebase |
+| [threat-model](./threat-model/) | Update Microsoft Threat Modeling Tool (.tm7) files with STRIDE analysis |
 
 ## Installation
 

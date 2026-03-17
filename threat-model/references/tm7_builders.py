@@ -265,7 +265,7 @@ def set_element_boolean(content, element_guid, property_name_guid, new_value):
         print(f"  WARNING: Element {element_guid} not found")
         return content
 
-    region = content[idx:idx + 2000]
+    region = content[idx:idx + REGION_SIZE]
     for old_val, new_val in [("false", new_value), ("true", new_value)]:
         if old_val == new_value:
             continue
@@ -288,6 +288,13 @@ OUT_OF_SCOPE_GUID = "71f3d9aa-b8ef-4e54-8126-607a1d903103"
 def set_out_of_scope(content, element_guid, value="true"):
     """Shortcut to set Out Of Scope on an element."""
     return set_element_boolean(content, element_guid, OUT_OF_SCOPE_GUID, value)
+
+
+# Default search region size. Simple elements (GE.EI, GE.P) fit within 2000 chars,
+# but TMT built-in stencils (SE.P.TMCore.WebApp, etc.) and connectors with many
+# configurable properties can exceed 3000 chars from <a:Key> to their positional
+# fields (Left/Top/SourceX/TargetX). Use 5000 to be safe.
+REGION_SIZE = 5000
 
 
 def resize_boundary(content, boundary_guid, left, top, width, height):
@@ -315,7 +322,7 @@ def resize_boundary(content, boundary_guid, left, top, width, height):
 
     import re
     region_start = idx
-    region = content[region_start:region_start + 3000]
+    region = content[region_start:region_start + REGION_SIZE]
 
     props = [
         (f'Left xmlns="{ABS_NS}"', left),
@@ -331,7 +338,7 @@ def resize_boundary(content, boundary_guid, left, top, width, height):
             new_text = f'<{tag}>{new_val}</'
             abs_pos = region_start + match.start()
             content = content[:abs_pos] + new_text + content[abs_pos + len(old_text):]
-            region = content[region_start:region_start + 3000]
+            region = content[region_start:region_start + REGION_SIZE]
 
     print(f"  Resized boundary {boundary_guid[:8]}...: L={left}, T={top}, W={width}, H={height}")
     return content
@@ -371,6 +378,120 @@ def rename_data_flow(content, old_name, new_name):
         content = content.replace(old_interaction, new_interaction)
         print(f"    Updated {count} threat InteractionString references")
 
+    return content
+
+
+def move_element(content, element_guid, new_left, new_top):
+    """Move an element to a new position.
+
+    Args:
+        content:       Full .tm7 file content string.
+        element_guid:  GUID of the element to move.
+        new_left:      New Left position.
+        new_top:       New Top position.
+
+    Returns:
+        Modified content string.
+
+    Note: This only moves the element itself. Data flow connectors referencing
+    this element must be updated separately with move_connector_endpoint().
+    """
+    marker = f'<a:Key>{element_guid}</a:Key>'
+    idx = content.find(marker)
+    if idx == -1:
+        print(f"  WARNING: Element {element_guid} not found")
+        return content
+
+    import re
+    region_start = idx
+    region = content[region_start:region_start + REGION_SIZE]
+
+    for tag, new_val in [(f'Left xmlns="{ABS_NS}"', new_left),
+                         (f'Top xmlns="{ABS_NS}"', new_top)]:
+        pattern = f'<{tag}>\\d+</'
+        match = re.search(pattern, region)
+        if match:
+            old_text = match.group()
+            new_text = f'<{tag}>{new_val}</'
+            abs_pos = region_start + match.start()
+            content = content[:abs_pos] + new_text + content[abs_pos + len(old_text):]
+            region = content[region_start:region_start + REGION_SIZE]
+
+    print(f"  Moved element {element_guid[:8]}...: L={new_left}, T={new_top}")
+    return content
+
+
+def move_connector_endpoint(content, connector_guid, element_guid, new_x, new_y,
+                            handle_x=None, handle_y=None):
+    """Update a connector's Source or Target endpoint after an element moves.
+
+    Detects whether the element is the connector's source or target and updates
+    the corresponding SourceX/Y or TargetX/Y. Optionally updates HandleX/Y.
+
+    Args:
+        content:        Full .tm7 file content string.
+        connector_guid: GUID of the data flow connector.
+        element_guid:   GUID of the moved element.
+        new_x, new_y:   New endpoint coordinates.
+        handle_x/y:     Optional new handle position for the label.
+
+    Returns:
+        Modified content string.
+    """
+    marker = f'<a:Key>{connector_guid}</a:Key>'
+    idx = content.find(marker)
+    if idx == -1:
+        print(f"  WARNING: Connector {connector_guid} not found")
+        return content
+
+    import re
+    region_start = idx
+    region = content[region_start:region_start + REGION_SIZE]
+
+    src_tag = f'<SourceGuid xmlns="{ABS_NS}">{element_guid}</SourceGuid>'
+    tgt_tag = f'<TargetGuid xmlns="{ABS_NS}">{element_guid}</TargetGuid>'
+    is_source = src_tag in region
+    is_target = tgt_tag in region
+
+    if is_source:
+        for tag, val in [("SourceX", new_x), ("SourceY", new_y)]:
+            pattern = f'<{tag} xmlns="{ABS_NS}">\\d+</{tag}>'
+            match = re.search(pattern, region)
+            if match:
+                new_text = f'<{tag} xmlns="{ABS_NS}">{val}</{tag}>'
+                abs_pos = region_start + match.start()
+                content = content[:abs_pos] + new_text + content[abs_pos + len(match.group()):]
+                region = content[region_start:region_start + REGION_SIZE]
+
+    if is_target:
+        for tag, val in [("TargetX", new_x), ("TargetY", new_y)]:
+            pattern = f'<{tag} xmlns="{ABS_NS}">\\d+</{tag}>'
+            match = re.search(pattern, region)
+            if match:
+                new_text = f'<{tag} xmlns="{ABS_NS}">{val}</{tag}>'
+                abs_pos = region_start + match.start()
+                content = content[:abs_pos] + new_text + content[abs_pos + len(match.group()):]
+                region = content[region_start:region_start + REGION_SIZE]
+
+    if handle_x is not None:
+        pattern = f'<HandleX xmlns="{ABS_NS}">\\d+</HandleX>'
+        match = re.search(pattern, region)
+        if match:
+            new_text = f'<HandleX xmlns="{ABS_NS}">{handle_x}</HandleX>'
+            abs_pos = region_start + match.start()
+            content = content[:abs_pos] + new_text + content[abs_pos + len(match.group()):]
+            region = content[region_start:region_start + REGION_SIZE]
+
+    if handle_y is not None:
+        pattern = f'<HandleY xmlns="{ABS_NS}">\\d+</HandleY>'
+        match = re.search(pattern, region)
+        if match:
+            new_text = f'<HandleY xmlns="{ABS_NS}">{handle_y}</HandleY>'
+            abs_pos = region_start + match.start()
+            content = content[:abs_pos] + new_text + content[abs_pos + len(match.group()):]
+
+    role = "source" if is_source else "target" if is_target else "unknown"
+    print(f"  Updated connector {connector_guid[:8]}... ({role}): x={new_x}, y={new_y}")
     return content
 
 

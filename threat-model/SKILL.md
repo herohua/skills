@@ -14,6 +14,7 @@ Update Microsoft Threat Modeling Tool (TMT) `.tm7` files programmatically — ad
 - User wants to add new processes, external interactors, data stores, data flows, or trust boundaries
 - User wants new STRIDE threats generated for new or modified data flows
 - User wants to restructure trust boundaries or rename elements
+- User wants to move elements in or out of trust boundaries
 
 ## High-Level Workflow
 
@@ -138,6 +139,8 @@ if __name__ == "__main__":
 | `set_out_of_scope(content, element_guid, value)` | Set Out Of Scope flag on an element |
 | `resize_boundary(content, boundary_guid, left, top, width, height)` | Resize a trust boundary |
 | `rename_data_flow(content, old_name, new_name)` | Rename a flow + update threat references |
+| `move_element(content, element_guid, new_left, new_top)` | Move an element to a new position |
+| `move_connector_endpoint(content, connector_guid, element_guid, new_x, new_y, ...)` | Update connector Source/TargetX/Y after moving an element |
 
 All text arguments accept **plain text** — escaping is handled internally.
 
@@ -178,6 +181,12 @@ Tell the user to open the .tm7 in Microsoft Threat Modeling Tool to visually ver
 - **Pass plain text to builder functions** — they handle XML escaping internally
 - **Avoid double-escaping**: never pre-escape `&` as `&amp;` before passing to builders
 - **Use deterministic GUIDs** for reproducibility — hardcode them as constants
+- **Use large search regions** (5000+ chars from GUID marker): TMT built-in stencils (`SE.P.TMCore.WebApp`, etc.) have many more properties than generic elements, pushing positional fields (`Left`, `Top`, `SourceX`, `TargetX`) far from the `<a:Key>` marker. A 3000-char region will miss them.
+
+### Moving Elements
+- When moving an element, **update all connected data flow connectors** — use `move_element()` + `move_connector_endpoint()` for each connector
+- Find connected connectors by searching for the element's GUID in `<SourceGuid>` and `<TargetGuid>` tags
+- Adjust `HandleX`/`HandleY` proportionally to keep labels readable
 
 ### Naming Conventions
 - **Arrow labels**: Use format `N. Operation (Auth)` — e.g., `5. Create Issue (GitHub App)`

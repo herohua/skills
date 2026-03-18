@@ -157,6 +157,13 @@ For each new data flow, generate threats covering relevant categories:
 | **Denial of Service** | Flow to shared resource (apply selectively) | — |
 | **Elevation of Privileges** | Automated entity has elevated permissions | TH110 |
 
+**Unauthenticated API flows** deserve special threat attention:
+- Spoofing via DNS hijacking / MITM (no client auth to verify identity)
+- Tampering of response data in transit
+- Information Disclosure of query patterns revealing internal structure
+- API abuse / data poisoning if the service has any write surface
+- EoP when untrusted response data flows into an automated fix pipeline
+
 ### Phase 5: Run and Verify
 
 1. **Run the script** against the .tm7 file
@@ -188,9 +195,15 @@ Tell the user to open the .tm7 in Microsoft Threat Modeling Tool to visually ver
 - Find connected connectors by searching for the element's GUID in `<SourceGuid>` and `<TargetGuid>` tags
 - Adjust `HandleX`/`HandleY` proportionally to keep labels readable
 
+### Renumbering Flows
+- When inserting a new numbered flow between existing ones, **rename in reverse order** (highest number first) to avoid name collisions
+  - Example: inserting new step 6 → rename 9→10, 8→9, 7→8, 6→7, then add step 6
+- `rename_data_flow()` updates both the connector name and all threat `InteractionString` references automatically
+- Each renamed flow may have multiple threats — all are updated in one call
+
 ### Naming Conventions
 - **Arrow labels**: Use format `N. Operation (Auth)` — e.g., `5. Create Issue (GitHub App)`
-- **Auth methods**: MSI, GitHub App, GitHub Login, OAuth, Access Token, API Key, etc.
+- **Auth methods**: MSI, GitHub App, GitHub Login, OAuth, Access Token, API Key, No Auth, etc.
 - **Element names**: Use clear, descriptive names matching the design diagram
 
 ### Positioning

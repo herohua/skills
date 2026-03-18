@@ -7,6 +7,7 @@ Personal collection of reusable [Claude Code](https://claude.ai/claude-code) ski
 | Skill | Description |
 |-------|-------------|
 | [review-design](./review-design/) | Interactive design document review against a codebase |
+| [review-pr](./review-pr/) | Interactive PR code review with merge-base diff, supports Azure DevOps and GitHub |
 | [threat-model](./threat-model/) | Update Microsoft Threat Modeling Tool (.tm7) files with STRIDE analysis |
 
 ## Installation
@@ -34,6 +35,8 @@ Once installed, invoke skills as slash commands in Claude Code:
 
 ```
 /review-design C:\path\to\design-doc.htm --pr develop
+/review-pr https://dev.azure.com/org/project/_git/repo/pullrequest/12345
+/review-pr https://github.com/owner/repo/pull/42 --post-as "Your Name"
 ```
 
 ## Adding New Skills

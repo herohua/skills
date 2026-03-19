@@ -96,6 +96,9 @@ After seeing the diff and changed files, assess whether reviewing only the chang
 
 ### Decision Workflow
 
+If the assessment is **clear-cut** (e.g., changes are leaf nodes with no external callers, tests are included, no shared utilities modified), state your reasoning briefly and proceed without prompting. Only use `AskUserQuestion` when the decision is genuinely ambiguous.
+
+When prompting is needed:
 1. Present your assessment to the reviewer with reasoning:
    - List which signals you detected
    - Recommend whether a full clone is needed
@@ -183,10 +186,11 @@ For each finding, include a brief explanation of:
 
 ### Ask Reviewer for Input
 
-Use `AskUserQuestion` to ask:
-1. Which findings to post as PR comments (by number)
-2. Any findings to adjust or drop
-3. Attribution text for comments (default: suggest "(Comment by {name} and Claude)")
+Use a **single** `AskUserQuestion` call with multiple questions to minimize round-trips:
+- **Question 1**: Which findings to post as PR comments — offer grouped options (e.g., "All findings", "Bugs only", "Bugs + Design", "None")
+- **Question 2**: Attribution text for comments — offer options like "(Comment by {reviewer name} and Claude)" or "(Comment by Claude)"
+
+Do NOT ask these as separate sequential questions.
 
 ---
 
@@ -196,9 +200,31 @@ For each approved finding, post an inline threaded comment using the patterns fr
 
 Include the agreed attribution text at the end of each comment body.
 
+### Comment Posting Best Practices
+
+- **Always write the JSON payload to a temp file** and use `curl -d @/tmp/pr-review/commentN.json` instead of inline `-d '...'`. Markdown content with code blocks, backticks, and special characters causes bash escaping failures with inline JSON.
+- Use heredoc with `'JSONEOF'` (single-quoted delimiter) to write the file, preventing bash variable expansion inside the JSON.
+- Post comments **in parallel** when they target different files to save time.
+- For Azure DevOps, set `secondComparingIteration` to the **latest iteration number** so line numbers resolve correctly.
+
+### Freshness Check Before Posting
+
+**Before posting any comments**, re-fetch the PR iterations to check if a new iteration has been pushed since the analysis was performed. Compare the latest `sourceRefCommit.commitId` against the commit SHA used during analysis.
+
+- If they match, proceed with posting.
+- If they differ, **stop** — warn the reviewer that the PR has been updated since the analysis, offer to re-analyze with the new version, and do NOT post stale comments.
+
+This prevents the embarrassing situation of posting review comments that reference code the author has already changed.
+
 ### After Posting
 
 Report which comments were posted successfully and provide links where available. If any fail, report the error and offer to retry.
+
+### Cleaning Up Mistakes
+
+If you accidentally post a test comment or wrong content:
+- **Azure DevOps**: PATCH the thread to set `"status": "closed"` to hide it.
+- **GitHub**: Use `gh api` to delete the comment.
 
 ---
 
@@ -209,3 +235,22 @@ Report which comments were posted successfully and provide links where available
 - If file downloads fail for specific files, skip them and note which files could not be reviewed
 - If comment posting fails, show the error and offer alternatives (e.g., copy comment text to clipboard)
 - If repo clone fails, fall back to reviewing with changed files only and inform the reviewer
+
+---
+
+## Re-Review After PR Update
+
+This phase is triggered when the reviewer asks to recheck an updated PR, **or** when Claude detects that the PR has been updated (e.g., the freshness check in Phase 7 reveals a new iteration):
+
+1. **Re-fetch PR metadata** to get the new source commit SHA.
+2. **Re-fetch iterations** to find the latest iteration number and confirm the merge base hasn't changed.
+3. **Optimize the re-diff**:
+   - If the merge base is unchanged, reuse the existing base file downloads.
+   - Only re-download the source versions of changed files using the new source commit.
+   - Compare the old source versions against the new source versions (iteration-over-iteration diff) to quickly identify **what changed between iterations** — present this delta to the reviewer first.
+4. **Re-fetch existing comments** — new review threads may have been added since the last review.
+5. **Re-analyze** with the updated diffs. Previously-posted findings that are still valid do not need to be re-posted. Focus on:
+   - Whether previous findings have been addressed
+   - Any new issues introduced in the update
+   - Any existing reviewer comments that are now resolved or still open
+6. **Present updated findings** following the same Phase 6 workflow.

@@ -51,7 +51,9 @@ Response: `value[]` array of iterations. Each has:
 - `id` — iteration number (1, 2, 3...)
 - `sourceRefCommit.commitId` — source commit at that iteration
 - `targetRefCommit.commitId` — target commit at that iteration
-- First iteration's `targetRefCommit` = merge base (common ancestor)
+- `commonRefCommit.commitId` — merge base (common ancestor) commit; use this for the base version in diffs
+
+**Pitfall**: Use `commonRefCommit.commitId` (not `targetRefCommit` from iteration 1) for the merge base. `commonRefCommit` is the authoritative common ancestor and is present on every iteration.
 
 ## Iteration Changes
 
@@ -187,3 +189,12 @@ curl -s -u ":$TOKEN" \
 4. **Windows `/tmp/` paths**: Files at `/tmp/` are not readable by the `Read` tool on Windows. Use `Bash` + `cat`.
 5. **Merge-base vs HEAD**: Always use the merge base (common ancestor) for diffs, not the current target branch HEAD. Diffing against HEAD flags pre-existing code as PR changes.
 6. **`filePath` prefix**: Thread context `filePath` must start with `/` (e.g., `/src/Foo/Bar.cs`).
+7. **Token does not persist across Bash calls**: On Windows, each `Bash` tool invocation starts a fresh shell. Always re-fetch `TOKEN` at the top of each Bash command: `TOKEN=$(az account get-access-token --resource 499b84ac-... --query accessToken -o tsv)`.
+8. **Inline JSON `-d` breaks with markdown content**: Comment bodies containing backticks, code blocks, or escaped characters cause bash escaping failures when passed inline via `-d '{...}'`. Always write JSON payloads to temp files and use `curl -d @/tmp/pr-review/commentN.json`. Use heredoc with single-quoted delimiter (`<< 'JSONEOF'`) to avoid bash variable expansion.
+9. **Closing accidental threads**: To hide a mistakenly posted thread, PATCH the thread URL with `{"status": "closed"}`:
+   ```bash
+   curl -s -u ":$TOKEN" -X PATCH -H "Content-Type: application/json" \
+     "$ORG/$PROJECT_ID/_apis/git/repositories/$REPO_ID/pullrequests/{prId}/threads/{threadId}?api-version=7.0" \
+     -d '{"status": "closed"}'
+   ```
+10. **`secondComparingIteration` must match latest iteration**: When posting inline comments, set `secondComparingIteration` in the `pullRequestThreadContext.iterationContext` to the latest iteration number. Using a stale iteration number causes comments to appear on the wrong code or fail silently.

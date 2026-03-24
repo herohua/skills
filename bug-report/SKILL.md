@@ -19,6 +19,7 @@ Look for `config.json` in the current working directory. It contains:
   "area_path": "<area\\path>",
   "product_name": "<display name>",
   "title_contains": "<title filter>",
+  "query_tag": "",
   "excluded_states": ["Closed", "Resolved"],
   "extra_tag": "",
   "extra_tag_category": "",
@@ -27,6 +28,8 @@ Look for `config.json` in the current working directory. It contains:
 }
 ```
 
+- `title_contains` (optional): If empty or missing, the `CONTAINS` clause is omitted from the WIQL query — all bugs under the area path are returned.
+- `query_tag` (optional): If set, adds `AND [System.Tags] CONTAINS '<query_tag>'` to the WIQL query to filter bugs by tag.
 - `category_keywords` (optional): Override/extend the built-in keyword→category mapping used for auto-suggesting categories on uncategorized bugs. Keys are category names, values are lists of keywords.
 - `ado_pat_env` (optional): Name of the environment variable holding an ADO Personal Access Token. Defaults to `"ADO_PAT"`. Used by `fetch_comments.py`.
 
@@ -62,12 +65,17 @@ Build the WIQL dynamically from config values. The template is:
 SELECT [System.Id], [System.Title], [System.State], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.Severity], [System.AssignedTo], [System.CreatedDate], [System.Tags]
 FROM workitems
 WHERE [System.WorkItemType] = 'Bug'
-  AND [System.Title] CONTAINS '<title_contains>'
+  AND [System.Title] CONTAINS '<title_contains>'   ← OMIT this line if title_contains is empty/missing
+  AND [System.Tags] CONTAINS '<query_tag>'          ← OMIT this line if query_tag is empty/missing
   AND [System.State] <> '<excluded_state_1>'
   AND [System.State] <> '<excluded_state_2>'
   AND [System.AreaPath] UNDER '<area_path>'
 ORDER BY [Microsoft.VSTS.Common.Priority] ASC
 ```
+
+**Conditional clauses:**
+- If `title_contains` is empty or not set, skip the `CONTAINS` line entirely.
+- If `query_tag` is set, include the `Tags CONTAINS` line to filter by tag.
 
 Run with:
 ```bash

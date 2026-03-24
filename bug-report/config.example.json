@@ -4,6 +4,7 @@
   "area_path": "MyProject\Team\SubArea",
   "product_name": "My Product",
   "title_contains": "My Product",
+  "query_tag": "",
   "excluded_states": ["Closed", "Resolved"],
   "extra_tag": "",
   "extra_tag_category": "",

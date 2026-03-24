@@ -1,0 +1,10 @@
+{
+  "ado_org": "https://dev.azure.com/myorg",
+  "ado_project": "MyProject",
+  "area_path": "MyProject\Team\SubArea",
+  "product_name": "My Product",
+  "title_contains": "My Product",
+  "excluded_states": ["Closed", "Resolved"],
+  "editorial_tag": "editorial-triage",
+  "editorial_category": "Editorial"
+}

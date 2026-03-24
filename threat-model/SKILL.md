@@ -93,6 +93,9 @@ def main():
     with open(args.input, "r", encoding="utf-8") as f:
         content = f.read()
 
+    # Note: .tm7 files produced by Microsoft Threat Modeling Tool contain a
+    # single DrawingSurfaceModel, so these closing tags appear exactly once.
+
     # 1. Add new border elements before </Borders>
     new_borders = []
     new_borders.append(make_external_interactor(GUID, z_id, "Name", left, top))

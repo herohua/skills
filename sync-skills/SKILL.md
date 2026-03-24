@@ -2,6 +2,7 @@
 name: sync-skills
 description: Sync local Claude Code skills from GitHub repositories into ~/.claude/skills. Use this whenever the user asks to update, refresh, fetch, pull, or install skills from anthropics/skills, herohua/skills, or similar skill repositories, especially for commands like /sync-skills.
 allowed-tools: Bash, Read, AskUserQuestion
+user-invocable: true
 ---
 
 # Sync Skills

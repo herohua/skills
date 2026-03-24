@@ -2,6 +2,8 @@
 name: threat-model
 description: |
   Update Microsoft Threat Modeling Tool (.tm7) files to reflect design changes. Use when the user wants to update a threat model, add new elements/flows/threats to a .tm7 file, modify DFD diagrams, or apply STRIDE analysis. Triggers include: any mention of 'threat model', '.tm7', 'STRIDE', 'DFD', 'data flow diagram', 'threat modeling tool', or requests to add threats, trust boundaries, data flows, or external interactors to a threat model. Also use when user provides a design flowchart and wants to update the corresponding threat model.
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, AskUserQuestion
+user-invocable: true
 ---
 
 # Threat Model Update Skill

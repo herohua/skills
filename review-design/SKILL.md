@@ -2,6 +2,7 @@
 name: review-design
 description: Review a design document against the current codebase. Reads design docs, explores the codebase for context, collaborates with the reviewer to align on key points, then generates a structured review. Invoke with /review-design <path-to-document> [--output <output-dir>] [--pr <target-branch>]
 allowed-tools: Read, Grep, Glob, Bash, Agent, Write, Edit, AskUserQuestion
+user-invocable: true
 ---
 
 # Design Document Review Skill

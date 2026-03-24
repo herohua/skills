@@ -2,6 +2,7 @@
 name: bug-report
 description: Refresh an ADO bug report dashboard. Queries Azure DevOps for open bugs, regenerates an HTML dashboard with summary tiles, charts, and categorized bug tables, then opens it in the browser. Invoke with /bug-report [refresh]
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion
+user-invocable: true
 ---
 
 # ADO Bug Report Skill

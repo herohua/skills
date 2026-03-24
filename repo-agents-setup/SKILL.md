@@ -14,6 +14,18 @@ Parse arguments from `$ARGUMENTS`:
 - `--update`: Update existing AGENTS.md rather than creating from scratch. When updating, read the existing file first and preserve user customizations.
 - If no arguments, generate fresh files.
 
+## Pre-Flight Check
+
+Before doing any exploration, check if `AGENTS.md` or `CLAUDE.md` already exist in the repository root. If either file exists and `--update` was NOT passed, use `AskUserQuestion` to ask the user:
+
+> "AGENTS.md (and/or CLAUDE.md) already exists in this repository. Would you like to create a fresh version (overwrites the existing file) or update the existing version (preserves your customizations)?"
+
+Options:
+- **Create fresh** — start from scratch, overwrite existing files
+- **Update existing** — read the current files, re-explore the codebase, and merge changes while preserving custom sections
+
+If the user chooses "Update existing", follow the same flow as `--update` (see "Updating Existing Files" section below).
+
 ## Overview
 
 The goal is to produce two files:

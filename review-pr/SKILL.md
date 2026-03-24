@@ -50,6 +50,14 @@ Use the patterns from the loaded reference to fetch PR metadata. Extract:
 - Repository identifiers (needed for subsequent API calls)
 - Source and target commit SHAs
 
+### PR State Validation
+
+After fetching metadata, check the PR status before proceeding:
+- **GitHub**: If `state` is `MERGED` or `CLOSED`, inform the reviewer and ask if they still want to review (the diff is still available, but posting comments may be less useful).
+- **Azure DevOps**: If `status` is `completed` or `abandoned`, same guidance.
+
+For active/open PRs, proceed normally.
+
 ### Present Summary
 
 Display to the reviewer:
@@ -72,6 +80,43 @@ Follow the platform-specific patterns from the loaded reference file to:
 4. **Generate unified diffs** between them
 
 Store the diffs and the full source versions of changed files — both are needed for analysis in Phase 4.
+
+---
+
+### Large PR Strategy
+
+For PRs with 300+ changed files:
+1. **Warn the reviewer** that reviewing this many files thoroughly will take significant time.
+2. **Prioritize by risk**: Focus on non-test production code first, then tests, then config/docs.
+3. **Batch file downloads**: Use pagination (see platform reference) rather than fetching all files in a single API call.
+4. **Consider scope splitting**: Ask the reviewer if they want to focus on specific directories or file types.
+
+### Binary File Detection
+
+Before generating diffs, detect and skip binary files:
+- Check file extensions against known binary types (`.png`, `.jpg`, `.gif`, `.ico`, `.woff`, `.woff2`, `.ttf`, `.dll`, `.exe`, `.zip`, `.pdf`, `.snk`).
+- Check HTTP response content-type headers when downloading (binary files return `application/octet-stream`).
+- If file content contains null bytes in the first 8 KB, treat it as binary.
+
+Note binary files in the review summary as "binary file changed — not diffed".
+
+### File Rename and Move Semantics
+
+Platforms report renames differently:
+- **GitHub**: The file entry has `status: "renamed"` and a `previous_filename` field with the old path.
+- **Azure DevOps**: The `changeType` is `32` (rename) or `34` (rename + edit). The old path is in `sourceServerItem`.
+
+When reviewing renames:
+- If rename-only (no content change), note it but skip detailed review.
+- If rename + edit, diff the old-path base version against the new-path source version.
+
+### Diff Line to File Line Mapping
+
+When posting inline comments, the `line` parameter refers to different things per platform:
+- **GitHub**: The `line` is the **line number in the file** (not the diff hunk position). Use `side: "RIGHT"` for new file lines, `side: "LEFT"` for old file lines.
+- **Azure DevOps**: The `rightFileStart.line` / `rightFileEnd.line` in `threadContext` are **1-based line numbers in the file**. Map from the unified diff hunk header (`@@ -old,count +new,count @@`) to compute the correct file line.
+
+Always verify the line content matches your finding before posting — off-by-one errors in line mapping cause comments to appear on the wrong line.
 
 ---
 
@@ -150,6 +195,15 @@ For each changed file, read the **full source version** (not just diff hunks) to
 - Unrelated changes mixed into the PR
 - Configuration or secret exposure
 
+**Security categories:**
+- Hardcoded credentials, API keys, or tokens (check for strings that look like secrets)
+- SQL injection: string concatenation in database queries instead of parameterized queries
+- XSS: unescaped user input rendered in HTML/templates
+- Path traversal: user-controlled input used in file paths without sanitization
+- Insecure deserialization: deserializing untrusted data without validation
+- Missing authentication/authorization checks on new endpoints
+- Sensitive data exposure: PII or secrets logged, returned in error messages, or stored unencrypted
+
 ### Verification Discipline
 
 **For every potential finding, you MUST verify all three conditions:**
@@ -206,6 +260,7 @@ Include the agreed attribution text at the end of each comment body.
 - Use heredoc with `'JSONEOF'` (single-quoted delimiter) to write the file, preventing bash variable expansion inside the JSON.
 - Post comments **in parallel** when they target different files to save time.
 - For Azure DevOps, set `secondComparingIteration` to the **latest iteration number** so line numbers resolve correctly.
+- **Rate limiting**: When posting many comments, add a brief delay (1–2 s) between requests. For GitHub, prefer batching all comments into a single pending review (see reference). For Azure DevOps, monitor for HTTP 429 responses and respect the `Retry-After` header.
 
 ### Freshness Check Before Posting
 

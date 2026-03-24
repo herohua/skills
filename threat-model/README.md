@@ -51,9 +51,11 @@ Executes the script, verifies changes programmatically (element counts, XML esca
 
 ```
 threat-model/
+├── README.md                 # This file — quick reference and usage guide
 ├── SKILL.md                  # Workflow guide and best practices
 └── references/
-    └── tm7-format.md         # .tm7 XML format reference with templates
+    ├── tm7-format.md         # .tm7 XML format reference with templates
+    └── tm7_builders.py       # Reusable Python builder functions
 ```
 
 ## Supported Element Types

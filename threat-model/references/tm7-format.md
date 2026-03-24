@@ -35,7 +35,7 @@ The abstract namespace is used inline (not as a prefix) in element properties: `
 
 ### Insertion Points
 
-When adding new elements, insert them before the closing tag of the relevant section:
+When adding new elements, insert them before the closing tag of the relevant section. TMT files contain a single `DrawingSurfaceModel`, so each closing tag appears exactly once:
 
 | Section | Insert Before | Content Type |
 |---------|--------------|--------------|

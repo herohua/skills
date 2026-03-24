@@ -5,7 +5,7 @@ A Claude Code skill that queries Azure DevOps for open bugs and generates an int
 ## Setup
 
 1. Copy this skill folder to `~/.claude/skills/bug-report/`
-2. Copy `generate_report.py` and `config.example.json` to your project working directory
+2. Copy `scripts/generate_report.py` and `config.example.json` to your project working directory
 3. Rename `config.example.json` to `config.json` and fill in your values
 4. Invoke with `/bug-report`
 
@@ -35,7 +35,7 @@ If `config.json` is not found when the skill runs, it will prompt you for the va
 ## How It Works
 
 1. Queries ADO using `az boards query` with a WIQL built from your config
-2. Runs `generate_report.py` to transform the JSON into an HTML dashboard
+2. Runs `scripts/generate_report.py` to transform the JSON into an HTML dashboard
 3. Opens the report in your browser
 
 ## Report Features

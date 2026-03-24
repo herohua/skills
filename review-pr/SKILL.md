@@ -2,6 +2,7 @@
 name: review-pr
 description: Review a pull request for bugs, design issues, and process concerns. Supports Azure DevOps and GitHub. Fetches PR metadata, computes merge-base diff, analyzes changes, presents findings interactively, and posts approved comments. Invoke with /review-pr <pr-url> [--post-as <name>]
 allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion, WebFetch
+user-invocable: true
 ---
 
 # Pull Request Review Skill

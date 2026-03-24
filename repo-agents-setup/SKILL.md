@@ -2,6 +2,7 @@
 name: repo-agents-setup
 description: Generate or update AGENTS.md and CLAUDE.md for a repository. Explores the codebase to understand project structure, conventions, build system, testing, and CI/CD, then produces a comprehensive AGENTS.md organized into Principles & Standards and Processes & Workflow sections. Also creates a CLAUDE.md that points to AGENTS.md. Invoke with /repo-agents-setup [--update]
 allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion, Write, Edit
+user-invocable: true
 ---
 
 # Repo Agents Setup Skill

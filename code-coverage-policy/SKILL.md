@@ -23,6 +23,7 @@ Parse arguments from `$ARGUMENTS`:
 - `--target <percent>`: Diff coverage target percentage (default: 70)
 - `--blocking`: Make the policy required (blocking)
 - `--optional`: Make the policy optional (non-blocking)
+- `--no-path-filter`: Skip adding the default path filter (not recommended)
 
 If required parameters are missing, use `AskUserQuestion` to collect them interactively.
 
@@ -68,7 +69,7 @@ Then process all locally in Python — no additional API calls needed for `check
 
 ### Windows file path pitfalls
 
-- **`$TEMP` with backslashes**: Paths like `C:\Users\...\Temp` break `curl -d @path`. Use forward-slash paths in the working directory instead .
+- **`$TEMP` with backslashes**: Paths like `C:\Users\...\Temp` break `curl -d @path`. Use forward-slash paths in the working directory instead (e.g., `/path/to/workdir/file.json`).
 - **Python vs bash paths**: `/tmp/` paths from bash are not accessible in Python on Windows. Use absolute paths with forward slashes that both can resolve.
 - **`jq` may not be available**: Use `python -c "..."` for JSON processing instead of `jq`.
 
@@ -87,6 +88,44 @@ curl -s -u ":$TOKEN" \
 If `value[]` is empty, the branch does not exist. **Skip it** and report to the user. Do NOT create or enforce policies on non-existent branches.
 
 When processing multiple repos, fetch refs per repo only when needed (for `add`/`update` actions). For `check`, branch existence is informational but not blocking.
+
+---
+
+## Path Filters (Documentation-Only PRs)
+
+By default, when adding or updating a code coverage status check policy, include a **path filter** so that PRs touching only documentation or configuration files are not blocked by the coverage check. This prevents unnecessary friction for doc-only PRs.
+
+### Default path filter
+
+```json
+"filenamePatterns": [
+  "/*",
+  "!*.md",
+  "!*.yml",
+  "!*.yaml",
+  "!/docs/*"
+]
+```
+
+This means:
+- `/*` — include all files by default
+- `!*.md` — exclude Markdown files (README.md, AGENTS.md, CLAUDE.md, CHANGELOG.md, etc.)
+- `!*.yml` / `!*.yaml` — exclude YAML config files
+- `!/docs/*` — exclude the docs folder
+
+The path filter uses the same syntax as other Azure DevOps branch policy path filters:
+- Patterns are applied left-to-right
+- `!` prefix excludes files that would otherwise be included
+- `*` matches any characters within a path segment
+- Paths starting with `/` are relative to the repo root
+
+When the `--no-path-filter` flag is provided, omit the `filenamePatterns` field entirely (the policy applies to all files).
+
+### Applying path filters
+
+- **`add` action**: Always include the default path filter unless `--no-path-filter` is specified.
+- **`update` action**: If the user asks to add path filters to an existing policy, GET the current config, add/modify the `filenamePatterns` array in `settings`, then PUT the full config back.
+- **`check` action**: Report whether existing policies have path filters configured.
 
 ---
 
@@ -112,18 +151,18 @@ For each repo, filter the policies data for:
 
 For a **single repo**, show detailed policy info:
 ```
-| # | Type   | Name/Display       | Blocking | Enabled | Branch          |
-|---|--------|--------------------|----------|---------|-----------------|
-| 1 | Build  | CI Pipeline        | Yes      | Yes     | refs/heads/main |
-| 2 | Status | CI/codecoverage    | No       | Yes     | refs/heads/main |
+| # | Type   | Name/Display       | Blocking | Enabled | Branch          | Path Filter     |
+|---|--------|--------------------|----------|---------|-----------------|-----------------|
+| 1 | Build  | CI Pipeline        | Yes      | Yes     | refs/heads/main | /*;!*.md        |
+| 2 | Status | CI/codecoverage    | No       | Yes     | refs/heads/main | (none)          |
 ```
 
 For **multiple repos**, show a summary table:
 ```
-| Repo          | Default Branch | Build Policy | Coverage Status | Enforcement          |
-|---------------|---------------|-------------|----------------|---------------------|
-| MyRepo        | main          | main        | main           | ENFORCED (blocking) |
-| OtherRepo     | develop       | develop     | None           | Not configured      |
+| Repo          | Default Branch | Build Policy | Coverage Status | Enforcement          | Path Filter |
+|---------------|---------------|-------------|----------------|---------------------|-------------|
+| MyRepo        | main          | main        | main           | ENFORCED (blocking) | Yes         |
+| OtherRepo     | develop       | develop     | None           | Not configured      | N/A         |
 ```
 
 Enforcement states:
@@ -148,7 +187,11 @@ Enforcement states:
 
 Code coverage status follows the naming convention: `{pipeline-name}/codecoverage`
 
-If `--pipeline` is not specified, look up build definitions for the repo and ask the user.
+If `--pipeline` is not specified:
+1. Look up build definitions for the repo via the build definitions API (filter by `repositoryId`).
+2. If a build validation policy already exists on the target branch, use the pipeline name from that build definition (most reliable — it's the pipeline that actually runs on PRs).
+3. If multiple PR pipelines exist, prefer the one named `*-PullRequest` or `*-pullrequest`.
+4. If ambiguous, ask the user to choose.
 
 ### Step 3: Resolve Policy Type ID
 
@@ -171,6 +214,13 @@ Write JSON payload to a file in the working directory, then POST:
     "authorId": "",
     "invalidateOnSourceUpdate": true,
     "displayName": "Code Coverage Policy",
+    "filenamePatterns": [
+      "/*",
+      "!*.md",
+      "!*.yml",
+      "!*.yaml",
+      "!/docs/*"
+    ],
     "scope": [
       {
         "repositoryId": "{repoId}",
@@ -188,6 +238,7 @@ Write JSON payload to a file in the working directory, then POST:
 - `isBlocking`: `true` for required, `false` for optional
 - `invalidateOnSourceUpdate`: `true` to reset status when the source branch is updated
 - `authorId`: Empty string means any identity can post the status
+- `filenamePatterns`: Default path filter that excludes doc/config-only PRs (see Path Filters section). Omit this field only if `--no-path-filter` is specified.
 
 **Pitfall**: Do NOT include `policyApplicability` as a string (e.g., `"default"`). The API expects a numeric enum or null. Omit the field entirely to get the default behavior (apply on PR creation).
 
@@ -198,6 +249,10 @@ Re-run the `check` action to confirm the policy was created.
 ---
 
 ## Action: `update` — Update an Existing Policy
+
+### Handling repos with no existing code coverage policy
+
+If the user asks to "update" a repo that has **no code coverage status check policy**, treat it as an `add` action instead. Inform the user that no existing policy was found and that you're creating one. Follow the `add` action steps.
 
 ### Step 1: Find the Policy
 
@@ -216,7 +271,12 @@ curl -s -u ":$TOKEN" \
 
 ### Step 4: Modify and Update
 
-Apply the requested changes. Write the modified JSON to a file in the working directory, then PUT:
+Apply the requested changes. Common update scenarios:
+- **Change blocking/enabled**: Modify `isBlocking` or `isEnabled` on the policy object.
+- **Add path filters**: Add or modify `filenamePatterns` in `settings` to exclude doc-only PRs. If the policy has no `filenamePatterns` (or an empty array), add the default filter: `["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]`.
+- **Change `invalidateOnSourceUpdate`**: Modify in `settings`.
+
+Write the modified JSON to a file in the working directory, then PUT:
 
 ```bash
 curl -s -u ":$TOKEN" \
@@ -230,7 +290,12 @@ curl -s -u ":$TOKEN" \
 
 ### Bulk update pattern
 
-When updating multiple policies (e.g., enforcing across several repos):
+When updating multiple policies (e.g., adding path filters to all enforced repos, or changing blocking state across several repos):
+
+1. Fetch all policy configurations (from the cached `policies.json` or re-fetch).
+2. In Python, filter for the target policies (e.g., all codecoverage status policies missing `filenamePatterns`).
+3. For each policy, clone the full config, apply changes (e.g., add `filenamePatterns` to `settings`), and write to `$WORKDIR/cc_update_{policyId}.json`.
+4. Run parallel PUTs:
 
 ```bash
 TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
@@ -245,6 +310,14 @@ done
 wait
 # Collect and report results
 ```
+
+**Example — bulk add path filters to existing policies:**
+Given a list of policy IDs that currently have no `filenamePatterns`, the Python script should:
+- GET each policy's full config (or use the cached bulk data)
+- Add `"filenamePatterns": ["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]` to `settings`
+- Remove read-only fields (`_links`, `createdBy`, `createdDate`, `url`, `revision`) before PUT
+- Write each modified config to `$WORKDIR/cc_update_{policyId}.json`
+- PUT in parallel
 
 ### Step 5: Verify
 

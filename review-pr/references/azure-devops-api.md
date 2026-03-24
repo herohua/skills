@@ -39,6 +39,7 @@ Key response fields:
 | `lastMergeTargetCommit.commitId` | Latest target commit |
 | `sourceRefName` | Source branch (e.g., `refs/heads/feature/x`) |
 | `targetRefName` | Target branch (e.g., `refs/heads/develop`) |
+| `status` | PR status: `active`, `completed`, or `abandoned` |
 
 ## Iterations
 
@@ -63,7 +64,7 @@ curl -s -u ":$TOKEN" \
 ```
 
 Response: `changeEntries[]` with:
-- `changeType`: `1` = add, `2` = edit, `16` = delete
+- `changeType`: `1` = add, `2` = edit, `16` = delete, `32` = rename, `64` = copy, `34` = rename + edit (bitwise OR of 32 + 2)
 - `item.path`: file path
 
 ## Commit Diff Summary
@@ -76,6 +77,19 @@ curl -s -u ":$TOKEN" \
 Response: `changes[]` with `changeType` and `item.path`, plus `aheadCount` and `behindCount`.
 
 **Pitfall**: `az devops invoke --resource diffs` with api-version 7.0 fails. Use raw `curl` instead.
+
+### Pagination
+
+Large diffs may not return all entries in a single response. Check the `isComplete` field in the JSON response:
+- If `isComplete` is `true`, all changes are included.
+- If `isComplete` is `false`, paginate with `$top` and `$skip` query parameters:
+
+```bash
+curl -s -u ":$TOKEN" \
+  "$ORG/$PROJECT_ID/_apis/git/repositories/$REPO_ID/diffs/commits?baseVersion={baseCommit}&baseVersionType=commit&targetVersion={targetCommit}&targetVersionType=commit&\$top=100&\$skip=0&api-version=7.0"
+```
+
+Increment `$skip` by `$top` on each call until `isComplete` is `true`.
 
 ## File Download
 
@@ -92,6 +106,15 @@ curl -s -u ":$TOKEN" \
 ```
 
 **Pitfall**: On Windows, files at `/tmp/` paths are not accessible via the `Read` tool. Use `cat` via `Bash` instead.
+
+### Binary File Detection
+
+The Items API returns raw file content. Detect and skip binary files to avoid corrupted diffs:
+- Check the HTTP `Content-Type` response header — binary files return `application/octet-stream` instead of a text type.
+- Check the file extension against known binary types (`.png`, `.jpg`, `.gif`, `.ico`, `.woff`, `.woff2`, `.ttf`, `.dll`, `.exe`, `.zip`, `.pdf`, `.snk`).
+- If the downloaded content contains null bytes (`\x00`) in the first 8 KB, treat it as binary.
+
+Skip binary files during diff generation and note them in the review summary as "binary file changed — not diffed".
 
 ## Clone Repository
 
@@ -152,6 +175,14 @@ curl -s -u ":$TOKEN" \
   }'
 ```
 
+#### Understanding `firstComparingIteration` and `secondComparingIteration`
+
+These fields in `pullRequestThreadContext.iterationContext` control which code snapshot the comment anchors to:
+- `firstComparingIteration` — the **base** iteration for the comparison (typically `1` for "changes since the PR was created").
+- `secondComparingIteration` — the **target** iteration the reviewer is looking at (typically the latest iteration number).
+
+When posting a comment on a brand-new review, use `firstComparingIteration: 1` and `secondComparingIteration: <latest>`. When posting on an iteration-over-iteration diff (e.g., "what changed between push 3 and push 5"), set both values to the corresponding iteration numbers.
+
 ### Post general PR comment (no file context)
 ```bash
 curl -s -u ":$TOKEN" \
@@ -180,6 +211,9 @@ curl -s -u ":$TOKEN" \
 | `changeType` (iterations) | `1` | File added |
 | `changeType` (iterations) | `2` | File edited |
 | `changeType` (iterations) | `16` | File deleted |
+| `changeType` (iterations) | `32` | File renamed |
+| `changeType` (iterations) | `64` | File copied |
+| `changeType` (iterations) | `34` | File renamed + edited |
 
 ## Known Pitfalls Summary
 
@@ -198,3 +232,8 @@ curl -s -u ":$TOKEN" \
      -d '{"status": "closed"}'
    ```
 10. **`secondComparingIteration` must match latest iteration**: When posting inline comments, set `secondComparingIteration` in the `pullRequestThreadContext.iterationContext` to the latest iteration number. Using a stale iteration number causes comments to appear on the wrong code or fail silently.
+
+11. **HTTP 429 rate limiting**: Azure DevOps returns `429 Too Many Requests` when you exceed the per-user rate limit. Mitigate with:
+    - Read the `Retry-After` response header (value in seconds) and wait before retrying.
+    - Cache iteration and file-download results so repeated reviews of the same PR don’t re-fetch unchanged data.
+    - When posting multiple comments, add a brief delay (1–2 s) between requests to stay under burst limits.

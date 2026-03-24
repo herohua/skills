@@ -20,8 +20,8 @@ Look for `config.json` in the current working directory. It contains:
   "product_name": "<display name>",
   "title_contains": "<title filter>",
   "excluded_states": ["Closed", "Resolved"],
-  "extra_tag": "editorial-triage",
-  "extra_tag_category": "Editorial",
+  "extra_tag": "",
+  "extra_tag_category": "",
   "category_keywords": {},
   "ado_pat_env": "ADO_PAT"
 }
@@ -109,7 +109,7 @@ After `generate_report.py` runs, check if any bugs are still in the "Uncategoriz
 
 - **Summary tiles**: Total bugs, Categories, P0+P1 count, Active count, Extra tag count, Comment Discrepancies count
 - **Bar charts**: Bugs by Category, State, Priority
-- **Collapsible category sections** with bug tables (ID link, title, state, priority, editorial icon, discrepancy warning, assignee, created date)
+- **Collapsible category sections** with bug tables (ID link, title, state, priority, extra tag icon, discrepancy warning, assignee, created date)
 - **Expand All / Collapse All** controls
 - **Keyword-suggested categories**: Bugs without `[xxx]` prefixes get auto-categorized by keyword matching. These show with a "(suggested)" label in the report.
 - **Comment discrepancy detection**: If `ado_comments_analysis.json` is present, bugs with discrepancies show an orange warning icon. Hovering reveals details (who suggested what vs. current value).

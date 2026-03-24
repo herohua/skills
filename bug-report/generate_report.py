@@ -334,7 +334,7 @@ html = f"""<!DOCTYPE html>
   .priority-0 {{ background: #dc2626; color: white; }}
   .priority-1 {{ background: #f59e0b; color: white; }}
   .priority-2 {{ background: #6b7280; color: white; }}
-  .editorial-icon {{
+  .extra-tag-icon {{
     display: inline-block;
     width: 22px;
     height: 22px;
@@ -567,7 +567,7 @@ for i, cat in enumerate(sorted_cats):
 
         extra_tag_td = ""
         if extra_tag:
-            icon = f'<span class="editorial-icon" title="{extra_tag}">{extra_tag_category[0]}</span>' if bug["id"] in extra_tag_ids else ""
+            icon = f'<span class="extra-tag-icon" title="{extra_tag}">{extra_tag_category[0]}</span>' if bug["id"] in extra_tag_ids else ""
             extra_tag_td = f'<td style="text-align:center">{icon}</td>'
 
         # Discrepancy warning icon

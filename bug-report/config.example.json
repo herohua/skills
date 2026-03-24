@@ -6,5 +6,7 @@
   "title_contains": "My Product",
   "excluded_states": ["Closed", "Resolved"],
   "extra_tag": "",
-  "extra_tag_category": ""
+  "extra_tag_category": "",
+  "category_keywords": {},
+  "ado_pat_env": "ADO_PAT"
 }

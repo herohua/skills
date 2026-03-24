@@ -18,6 +18,35 @@ extra_tag = config.get("extra_tag", "")
 extra_tag_category = config.get("extra_tag_category", "")
 title_contains = config.get("title_contains", product_name)
 
+# Category keyword heuristic for auto-suggesting categories on uncategorized bugs
+DEFAULT_CATEGORY_KEYWORDS = {
+    "API": ["api", "endpoint", "rest", "request", "response", "http", "status code", "400", "401", "403", "404", "500"],
+    "Backend": ["server", "backend", "service", "middleware", "controller", "handler"],
+    "Infrastructure": ["infra", "deploy", "pipeline", "ci/cd", "build", "release", "config", "environment"],
+    "Stability": ["crash", "hang", "freeze", "timeout", "retry", "intermittent", "flaky", "unstable", "stuck"],
+    "Performance": ["slow", "latency", "performance", "memory", "cpu", "throughput", "bottleneck", "lag"],
+    "UX": ["ui", "ux", "display", "layout", "button", "dialog", "modal", "tooltip", "responsive"],
+    "Accessibility": ["a11y", "accessibility", "screen reader", "narrator", "keyboard", "focus", "aria", "wcag"],
+    "Data": ["data", "database", "sql", "query", "migration", "schema", "corruption", "loss"],
+    "Security": ["security", "auth", "permission", "token", "credential", "vulnerability", "xss", "csrf"],
+    "Documentation": ["doc", "documentation", "readme", "help text", "tooltip text", "error message"],
+}
+# Allow config.json to override/extend keyword categories
+CATEGORY_KEYWORDS = {**DEFAULT_CATEGORY_KEYWORDS, **config.get("category_keywords", {})}
+
+
+def suggest_category(title, tags):
+    """Score a bug's title+tags against keyword categories. Returns (category, True) or (None, False)."""
+    text = f"{title} {tags}".lower()
+    best_cat, best_score = None, 0
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text)
+        if score > best_score:
+            best_cat, best_score = cat, score
+    if best_score >= 1:
+        return best_cat, True
+    return None, False
+
 # All paths are relative to the script's directory
 output_dir = script_dir
 
@@ -33,6 +62,20 @@ output_path = os.path.join(output_dir, "bug_report.html")
 
 with open(input_path) as f:
     bugs = json.load(f)
+
+# Load comment discrepancy analysis (optional — report works without it)
+comments_path = os.path.join(output_dir, "ado_comments_analysis.json")
+discrepancy_map = {}  # bug_id -> list of discrepancies
+discrepancy_bug_count = 0
+try:
+    with open(comments_path) as f:
+        comments_analysis = json.load(f)
+    for entry in comments_analysis:
+        if entry.get("discrepancies"):
+            discrepancy_map[entry["id"]] = entry["discrepancies"]
+    discrepancy_bug_count = len(discrepancy_map)
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
 
 # Categorize bugs
 categorized = defaultdict(list)
@@ -56,13 +99,20 @@ for b in bugs:
         "created_date": fields.get("System.CreatedDate", ""),
         "tags": fields.get("System.Tags", ""),
         "url": f"{wi_url_base}/{b.get('id')}",
+        "suggested": False,
     }
 
     if cats:
         for c in cats:
             categorized[c].append(bug_info)
     else:
-        categorized["Uncategorized"].append(bug_info)
+        # Try keyword-based category suggestion
+        suggested_cat, is_suggested = suggest_category(title, bug_info["tags"])
+        if is_suggested:
+            bug_info["suggested"] = True
+            categorized[suggested_cat].append(bug_info)
+        else:
+            categorized["Uncategorized"].append(bug_info)
 
     # Also add to extra tag category if tagged but not already there
     if extra_tag:
@@ -297,6 +347,46 @@ html = f"""<!DOCTYPE html>
     font-weight: 700;
     cursor: default;
   }}
+  .suggested-label {{
+    font-size: 11px;
+    font-style: italic;
+    color: #e67e22;
+    margin-left: 6px;
+  }}
+  .discrepancy-icon {{
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 4px;
+    background: #f59e0b;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    position: relative;
+  }}
+  .discrepancy-tooltip {{
+    display: none;
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    white-space: nowrap;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    text-align: left;
+    max-width: 400px;
+    white-space: normal;
+  }}
+  .discrepancy-icon:hover .discrepancy-tooltip {{ display: block; }}
 
   .footer {{
     text-align: center;
@@ -358,6 +448,10 @@ html = f"""<!DOCTYPE html>
   <div class="summary-card">
     <div class="number" style="color: #9b59b6">{extra_tag_count}</div>
     <div class="label">Tagged: {extra_tag_category}</div>
+  </div>
+  <div class="summary-card">
+    <div class="number" style="color: #f59e0b">{discrepancy_bug_count}</div>
+    <div class="label">Comment Discrepancies</div>
   </div>
 </div>
 
@@ -443,7 +537,7 @@ for i, cat in enumerate(sorted_cats):
   <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
     <div class="left">
       <span class="category-badge" style="background:{color}">{cat}</span>
-      <span class="category-count">{len(bug_list)} bug{"s" if len(bug_list) != 1 else ""}</span>
+      <span class="category-count">{len(bug_list)} bug{"s" if len(bug_list) != 1 else ""}{' (includes suggested)' if any(b.get('suggested') for b in bug_list) else ''}</span>
     </div>
     <span class="chevron">&#9660;</span>
   </div>
@@ -455,6 +549,7 @@ for i, cat in enumerate(sorted_cats):
         <th style="width:80px">State</th>
         <th style="width:60px">Priority</th>
         {extra_tag_th}
+        {'<th style="width:30px" title="Comment discrepancies detected">&#9888;</th>' if discrepancy_map else ''}
         <th style="width:140px">Assigned To</th>
         <th style="width:100px">Created</th>
       </tr>
@@ -475,12 +570,29 @@ for i, cat in enumerate(sorted_cats):
             icon = f'<span class="editorial-icon" title="{extra_tag}">{extra_tag_category[0]}</span>' if bug["id"] in extra_tag_ids else ""
             extra_tag_td = f'<td style="text-align:center">{icon}</td>'
 
+        # Discrepancy warning icon
+        discrepancy_td = ""
+        if discrepancy_map:
+            disc_list = discrepancy_map.get(bug["id"], [])
+            if disc_list:
+                tooltip_lines = "<br>".join(
+                    f"{d['type'].title()}: {d.get('comment_by', '?')} suggested {d.get('suggested', '?')} (current: {d.get('current', '?')})"
+                    for d in disc_list
+                )
+                discrepancy_td = f'<td style="text-align:center"><span class="discrepancy-icon" title="Discrepancies found">&#9888;<span class="discrepancy-tooltip">{tooltip_lines}</span></span></td>'
+            else:
+                discrepancy_td = '<td></td>'
+
+        # Suggested category label
+        suggested_label = '<span class="suggested-label">(suggested)</span>' if bug.get("suggested") else ""
+
         html += f"""      <tr>
         <td class="bug-id"><a href="{bug['url']}" target="_blank">{bug['id']}</a></td>
-        <td class="bug-title">{display_title}</td>
+        <td class="bug-title">{display_title}{suggested_label}</td>
         <td><span class="state-badge" style="background:{state_color}">{bug['state']}</span></td>
         <td><span class="priority-badge {pri_class}">P{bug['priority']}</span></td>
         {extra_tag_td}
+        {discrepancy_td}
         <td>{bug['assigned_to']}</td>
         <td>{created}</td>
       </tr>
@@ -507,3 +619,11 @@ with open(output_path, "w", encoding="utf-8") as f:
 print(f"Report generated: {output_path}")
 print(f"Total bugs: {len(bugs)}")
 print(f"Categories: {len(sorted_cats)}")
+suggested_ids = set()
+for cat_bugs in categorized.values():
+    for cb in cat_bugs:
+        if cb.get("suggested"):
+            suggested_ids.add(cb["id"])
+print(f"Suggested categorizations: {len(suggested_ids)}")
+if discrepancy_bug_count:
+    print(f"Bugs with comment discrepancies: {discrepancy_bug_count}")

@@ -181,6 +181,13 @@ The Status policy type (`cbdc66da-9728-4af8-aada-9a5a32e4a226`) uses these setti
   "authorId": "",
   "invalidateOnSourceUpdate": true,
   "displayName": "Code Coverage Policy",
+  "filenamePatterns": [
+    "/*",
+    "!*.md",
+    "!*.yml",
+    "!*.yaml",
+    "!/docs/*"
+  ],
   "scope": [...]
 }
 ```
@@ -192,8 +199,43 @@ The Status policy type (`cbdc66da-9728-4af8-aada-9a5a32e4a226`) uses these setti
 | `authorId` | Identity that must post the status. Empty string = any identity. |
 | `invalidateOnSourceUpdate` | `true` = reset status when source branch is updated. |
 | `displayName` | Optional friendly name shown in the branch policy UI. |
+| `filenamePatterns` | Optional path filter array. When set, the policy only applies to PRs that touch files matching the patterns. Patterns are applied left-to-right; `!` prefix excludes. |
 
 **Pitfall**: Do NOT include `policyApplicability` as a string (e.g., `"default"`). The API expects a numeric enum or null. Omit the field entirely to get the default behavior (apply on PR creation).
+
+### Path Filters (`filenamePatterns`)
+
+The `filenamePatterns` field is an optional array in `settings` that controls which files trigger the policy. When set, the policy only applies if the PR touches files matching the patterns. This works on **all policy types** (Status, Build, Required Reviewers, etc.).
+
+**Syntax:**
+- Patterns are applied left-to-right
+- `/*` — include all files
+- `!*.md` — exclude files matching the pattern (must come after an include)
+- `!/docs/*` — exclude an entire folder
+- Paths starting with `/` are relative to repo root
+- `*` matches any characters within a path segment
+- Multiple patterns in the array, each as a separate string
+
+**Example — exclude documentation-only PRs from code coverage:**
+```json
+"filenamePatterns": [
+  "/*",
+  "!*.md",
+  "!*.yml",
+  "!*.yaml",
+  "!/docs/*"
+]
+```
+
+**Example — only apply to specific source folders:**
+```json
+"filenamePatterns": [
+  "/src/*",
+  "/tests/*"
+]
+```
+
+**Pitfall**: An empty array `[]` means no path filter (policy applies to all files). To exclude files, you must first include with `/*` then exclude with `!` patterns. A filter like `["!*.md"]` alone specifies no files since nothing is included first.
 
 ---
 
@@ -327,7 +369,7 @@ Example response for a non-existent branch:
 7. **No status create CLI command**: Status check policies cannot be created via `az repos policy`. Use the REST API directly.
 8. **Scope with null repositoryId**: Setting `repositoryId` to `null` applies the policy to ALL repositories in the project. Always specify the repo ID for targeted policies.
 9. **`policyApplicability` type error**: Do NOT include `policyApplicability` as a string (e.g., `"default"`). The API expects a numeric enum or null. Omit the field entirely to get the default behavior.
-10. **Windows `$TEMP` backslash paths**: Paths like `C:\Users\...\Temp` break `curl -d @path`. Use forward-slash paths in the working directory instead.
-11. **`/tmp/` not shared between bash and Python on Windows**: Bash `/tmp/` resolves differently than Python on Windows. Use absolute paths with forward slashes that both can resolve.
+10. **Windows `$TEMP` backslash paths**: Paths like `C:\Users\...\Temp` break `curl -d @path`. Use forward-slash paths in the working directory instead (e.g., `/path/to/workdir/file.json`).
+11. **`/tmp/` not shared between bash and Python on Windows**: Bash `/tmp/` resolves differently than Python on Windows. Use absolute paths with forward slashes that both can resolve (e.g., `/path/to/workdir/`).
 12. **`jq` may not be available on Windows**: Use `python -c "..."` for JSON processing instead of `jq`.
 13. **Validate branches before setting policies**: Always check that a branch exists via the refs API before creating or enforcing policies on it. Skip non-existent branches and report them to the user.

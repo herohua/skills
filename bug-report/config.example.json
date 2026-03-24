@@ -1,0 +1,13 @@
+{
+  "ado_org": "https://dev.azure.com/myorg",
+  "ado_project": "MyProject",
+  "area_path": "MyProject\Team\SubArea",
+  "product_name": "My Product",
+  "title_contains": "My Product",
+  "query_tag": "",
+  "excluded_states": ["Closed", "Resolved"],
+  "extra_tag": "",
+  "extra_tag_category": "",
+  "category_keywords": {},
+  "ado_pat_env": "ADO_PAT"
+}

@@ -5,6 +5,6 @@
   "product_name": "My Product",
   "title_contains": "My Product",
   "excluded_states": ["Closed", "Resolved"],
-  "editorial_tag": "editorial-triage",
-  "editorial_category": "Editorial"
+  "extra_tag": "",
+  "extra_tag_category": ""
 }

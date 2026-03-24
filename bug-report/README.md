@@ -21,8 +21,8 @@ Create a `config.json` in your working directory:
 | `product_name` | Yes | Display name used in the report title and footer |
 | `title_contains` | Yes | Text filter for bug titles (`CONTAINS` clause) |
 | `excluded_states` | Yes | Array of states to exclude (e.g. `["Closed", "Resolved"]`) |
-| `editorial_tag` | No | Tag name for editorial review detection (e.g. `editorial-triage`) |
-| `editorial_category` | No | Category name for editorial bugs (default: `Editorial`) |
+| `extra_tag` | No | ADO tag name — bugs with this tag are also grouped into `extra_tag_category` |
+| `extra_tag_category` | No | Category name for bugs matching `extra_tag` |
 
 If `config.json` is not found when the skill runs, it will prompt you for the values interactively.
 
@@ -40,8 +40,8 @@ If `config.json` is not found when the skill runs, it will prompt you for the va
 
 ## Report Features
 
-- Summary tiles: total bugs, categories, P0+P1 count, active count, pending review count
+- Summary tiles: total bugs, categories, P0+P1 count, active count, extra tag count
 - Bar charts: bugs by category, state, priority
 - Collapsible category sections with sortable bug tables
 - Bugs are categorized by `[tag]` prefixes in their titles
-- Optional editorial review column (if `editorial_tag` is configured)
+- Optional extra tag column (if `extra_tag` is configured)

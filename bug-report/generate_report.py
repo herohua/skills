@@ -14,8 +14,8 @@ product_name = config["product_name"]
 ado_org = config["ado_org"]
 ado_project = config["ado_project"]
 area_path = config["area_path"]
-editorial_tag = config.get("editorial_tag", "")
-editorial_category = config.get("editorial_category", "Editorial")
+extra_tag = config.get("extra_tag", "")
+extra_tag_category = config.get("extra_tag_category", "")
 title_contains = config.get("title_contains", product_name)
 
 # All paths are relative to the script's directory
@@ -64,11 +64,11 @@ for b in bugs:
     else:
         categorized["Uncategorized"].append(bug_info)
 
-    # Also add to editorial category if tagged but not already there
-    if editorial_tag:
+    # Also add to extra tag category if tagged but not already there
+    if extra_tag:
         tags = fields.get("System.Tags", "")
-        if editorial_tag.lower() in tags.lower() and editorial_category not in cats:
-            categorized[editorial_category].append(bug_info)
+        if extra_tag.lower() in tags.lower() and extra_tag_category not in cats:
+            categorized[extra_tag_category].append(bug_info)
 
 # Sort categories: alphabetical, but "Uncategorized" last
 sorted_cats = sorted(
@@ -85,15 +85,15 @@ for b in bugs:
     state_counts[fields.get("System.State", "N/A")] += 1
     priority_counts[fields.get("Microsoft.VSTS.Common.Priority", "N/A")] += 1
 
-# Count bugs pending editorial review
-pending_editorial_ids = set()
-if editorial_tag:
+# Count bugs with the extra tag
+extra_tag_ids = set()
+if extra_tag:
     for b in bugs:
         fields = b.get("fields", {})
         tags = fields.get("System.Tags", "")
-        if editorial_tag.lower() in tags.lower():
-            pending_editorial_ids.add(b["id"])
-pending_editorial_count = len(pending_editorial_ids)
+        if extra_tag.lower() in tags.lower():
+            extra_tag_ids.add(b["id"])
+extra_tag_count = len(extra_tag_ids)
 
 # State colors
 state_colors = {
@@ -119,8 +119,8 @@ now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 # Escape area_path backslashes for HTML display
 area_path_display = area_path.replace("\\", "&#92;")
 
-# Build editorial column header tooltip
-editorial_tooltip = f"Pending {editorial_category} Review ({editorial_tag} tag)" if editorial_tag else ""
+# Build extra tag column header tooltip
+extra_tag_tooltip = f"Tagged: {extra_tag} ({extra_tag_category})" if extra_tag else ""
 
 # Build HTML
 html = f"""<!DOCTYPE html>
@@ -356,8 +356,8 @@ html = f"""<!DOCTYPE html>
     <div class="label">Active</div>
   </div>
   <div class="summary-card">
-    <div class="number" style="color: #9b59b6">{pending_editorial_count}</div>
-    <div class="label">Pending {editorial_category} Review</div>
+    <div class="number" style="color: #9b59b6">{extra_tag_count}</div>
+    <div class="label">Tagged: {extra_tag_category}</div>
   </div>
 </div>
 
@@ -436,8 +436,8 @@ for i, cat in enumerate(sorted_cats):
     # Sort bugs by created date descending (newest first)
     bug_list.sort(key=lambda b: b["created_date"], reverse=True)
 
-    # Build editorial column header — only show if editorial_tag is configured
-    editorial_th = f'<th style="width:40px" title="{editorial_tooltip}">Edit.</th>' if editorial_tag else ""
+    # Build extra tag column header — only show if extra_tag is configured
+    extra_tag_th = f'<th style="width:40px" title="{extra_tag_tooltip}">Tag</th>' if extra_tag else ""
 
     html += f"""<div class="category-section">
   <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -454,7 +454,7 @@ for i, cat in enumerate(sorted_cats):
         <th>Title</th>
         <th style="width:80px">State</th>
         <th style="width:60px">Priority</th>
-        {editorial_th}
+        {extra_tag_th}
         <th style="width:140px">Assigned To</th>
         <th style="width:100px">Created</th>
       </tr>
@@ -470,17 +470,17 @@ for i, cat in enumerate(sorted_cats):
         display_title = re.sub(rf"\[{re.escape(title_contains)}\]\s*", "", display_title)
         display_title = re.sub(r"\[[^\]]+\]\s*", "", display_title, count=1)
 
-        editorial_td = ""
-        if editorial_tag:
-            icon = '<span class="editorial-icon" title="Pending Editorial Review">E</span>' if bug["id"] in pending_editorial_ids else ""
-            editorial_td = f'<td style="text-align:center">{icon}</td>'
+        extra_tag_td = ""
+        if extra_tag:
+            icon = f'<span class="editorial-icon" title="{extra_tag}">{extra_tag_category[0]}</span>' if bug["id"] in extra_tag_ids else ""
+            extra_tag_td = f'<td style="text-align:center">{icon}</td>'
 
         html += f"""      <tr>
         <td class="bug-id"><a href="{bug['url']}" target="_blank">{bug['id']}</a></td>
         <td class="bug-title">{display_title}</td>
         <td><span class="state-badge" style="background:{state_color}">{bug['state']}</span></td>
         <td><span class="priority-badge {pri_class}">P{bug['priority']}</span></td>
-        {editorial_td}
+        {extra_tag_td}
         <td>{bug['assigned_to']}</td>
         <td>{created}</td>
       </tr>

@@ -20,8 +20,8 @@ Look for `config.json` in the current working directory. It contains:
   "product_name": "<display name>",
   "title_contains": "<title filter>",
   "excluded_states": ["Closed", "Resolved"],
-  "editorial_tag": "editorial-triage",
-  "editorial_category": "Editorial"
+  "extra_tag": "editorial-triage",
+  "extra_tag_category": "Editorial"
 }
 ```
 
@@ -38,7 +38,7 @@ Then create `config.json` from the answers before proceeding.
 
 All files live in the working directory (same directory as `config.json`):
 
-- `config.json` — Configuration: ADO org, project, area path, product name, editorial tag
+- `config.json` — Configuration: ADO org, project, area path, product name, extra tag
 - `generate_report.py` — Main script: reads config.json + ado_bugs.json → generates HTML report
 - `ado_bugs.json` — Raw ADO query output (refreshed each run)
 - `bug_report.html` — Generated HTML report
@@ -81,7 +81,7 @@ start "" bug_report.html
 
 ## Report Features
 
-- **Summary tiles**: Total bugs, Categories, P0+P1 count, Active count, Pending review count (if editorial_tag configured)
+- **Summary tiles**: Total bugs, Categories, P0+P1 count, Active count, Extra tag count (if extra_tag configured)
 - **Bar charts**: Bugs by Category, State, Priority
 - **Collapsible category sections** with bug tables (ID link, title, state, priority, editorial icon, assignee, created date)
 - **Expand All / Collapse All** controls
@@ -89,7 +89,7 @@ start "" bug_report.html
 ## Categorization Logic
 
 1. Categories are extracted from `[xxx]` prefixes in bug titles (excluding `[<title_contains>]`)
-2. If `editorial_tag` is configured, bugs with that tag are also added to the editorial category
+2. If `extra_tag` is configured, bugs with that tag are also added to the `extra_tag_category`
 3. Bugs without any `[xxx]` prefix go to **Uncategorized**
 4. Within each category, bugs are sorted by created date descending (newest first)
 

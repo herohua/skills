@@ -32,10 +32,10 @@ If the user chooses "Update existing", follow the same flow as `--update` (see "
 The goal is to produce two files:
 
 1. **AGENTS.md** — comprehensive guide for AI agents working in the repo, organized into:
-   - Project Overview
+   - Project Overview (what it does, service dependencies, key data flows)
    - Repository Structure
-   - Principles & Standards (design principles, coding conventions, testing guidelines)
-   - Processes & Workflow (development setup, design-first workflow, pre-PR verification, CI/CD, deployment)
+   - Principles & Standards (key development patterns, coding conventions, testing guidelines)
+   - Processes & Workflow (general rules, development setup, design-first workflow, pre-PR verification, CI/CD, deployment, configuration, testing & debugging)
 
 2. **CLAUDE.md** — a short file that says: `Please follow all guidelines and conventions defined in AGENTS.md.`
 
@@ -53,6 +53,16 @@ Thoroughly explore the codebase to gather information. Use the Agent tool with `
 - Solution/workspace files (`.sln`, `package.json`, `Cargo.toml`, `go.mod`, etc.)
 - Source vs test vs docs vs infra separation
 
+### Key Development Patterns (Domain-Specific)
+**IMPORTANT**: Read the main controllers, services, and entry points to understand core architecture and data flows. Do NOT skip this step -- it captures the domain-specific knowledge that makes the AGENTS.md truly useful.
+- Core data flow / processing pipeline (read main controllers and service classes)
+- What models, APIs, or external services are called and in what order
+- Key architectural patterns (streaming, queuing, chunking, retry, etc.)
+- Authentication and authorization approach
+- Service dependencies and how they interact
+- Configuration management patterns (what config files exist, required sections, secrets handling)
+- Debugging and local testing approaches (HTTP files, debug headers, test tools)
+
 ### Build System
 - How to build the project (MSBuild, npm, cargo, make, etc.)
 - Build configuration files and their roles
@@ -68,6 +78,7 @@ Thoroughly explore the codebase to gather information. Use the Agent tool with `
 - Test directory structure
 - Any test configuration files (coverage settings, test runners)
 - Whether TDD or test-first is practiced (check docs)
+- E2E test requirements and when they must be updated
 
 ### CI/CD
 - Pipeline definitions (Azure Pipelines, GitHub Actions, etc.)
@@ -82,6 +93,20 @@ Thoroughly explore the codebase to gather information. Use the Agent tool with `
 ### Existing Agent/AI Config
 - Check for existing `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`
 - If updating (`--update`), read and preserve existing content as baseline
+
+## Phase 1b: Consolidate with Existing AI Config Files
+
+**IMPORTANT**: If existing AI configuration files are found (e.g., `.github/copilot-instructions.md`, `.cursorrules`, `.github/instructions/*.md`), do NOT simply ignore them or create a parallel file:
+
+1. **Read all existing AI config files** thoroughly
+2. **Extract all content** from them -- every rule, pattern, convention, and code example
+3. **Merge everything into AGENTS.md** as the single source of truth
+4. **Ask the user** whether to remove the old files (recommended) or keep them as pointers to AGENTS.md
+5. If the old files contain **tool-specific features** (e.g., Copilot's `<instructions>` XML with `applyTo` filters), note these to the user since they may need special handling
+
+If existing style guide documents are found (e.g., coding style markdown files):
+- **Link to them** from AGENTS.md rather than duplicating content inline
+- If they live in a tool-specific location (e.g., `.github/instructions/`), suggest moving them to a neutral location like `docs/coding-principles/`
 
 ## Phase 2: Ask Clarifying Questions
 
@@ -98,11 +123,20 @@ Do NOT ask about things you can already determine from the codebase (build comma
 
 Write `AGENTS.md` at the repository root with the following structure. Adapt section content to the actual project -- do not include sections that don't apply.
 
+**IMPORTANT**: Carefully separate content by concern:
+- **Principles & Standards** = technical patterns, coding style rules, testing conventions (what the code should look like)
+- **Processes & Workflow** = human/team rules, process steps, verification checklists (what developers should do)
+
+Do NOT mix process rules (e.g., "always confirm with maintainer before implementing") into coding convention sections. Process rules belong under Processes & Workflow.
+
 ```markdown
 # AGENTS.md
 
 ## Project Overview
-[What the project does, in 2-3 sentences]
+[What the project does, in 2-3 sentences. Include integration points (e.g., PR workflows, chat integrations).]
+
+### Service Dependencies
+[External services the project depends on -- databases, AI models, storage, monitoring. Include specific model names/versions if applicable.]
 
 ## Repository Structure
 [Tree diagram of key directories with inline comments explaining purpose]
@@ -111,18 +145,21 @@ Write `AGENTS.md` at the repository root with the following structure. Adapt sec
 
 ## Principles & Standards
 
-### Design Principles
-[Project's core design principles -- only include if the team has explicit ones]
+### Key Development Patterns
+[Domain-specific architecture: data flows, processing pipelines, streaming patterns, retry strategies, authentication. Include code examples from the actual codebase.]
 
 ### Coding Conventions
-[Style rules, naming conventions, field naming, from linter configs and docs]
+[Link to existing style docs if they exist rather than duplicating. Only include conventions inline if no separate doc exists. Use tables for naming conventions.]
 
 ### Testing Guidelines
-[Test coverage expectations, TDD practices, test organization, test selection guidance]
+[Test coverage expectations, test organization, test selection guidance. Include E2E test update requirements.]
 
 ---
 
 ## Processes & Workflow
+
+### General Rules
+[Team process rules: confirm before implementing, update docs when changing features, etc.]
 
 ### Development
 [Prerequisites, build commands, how to run tests]
@@ -138,6 +175,12 @@ Write `AGENTS.md` at the repository root with the following structure. Adapt sec
 
 ### Deployment
 [How and where the project deploys]
+
+### Configuration
+[Config file locations, required sections, secrets handling, environment variable patterns]
+
+### Testing & Debugging
+[Local API testing tools, debug headers, extension debugging, test environments]
 ```
 
 ### Writing Guidelines
@@ -148,6 +191,7 @@ Write `AGENTS.md` at the repository root with the following structure. Adapt sec
 - Reference **actual file paths** from the repo (not generic examples)
 - Use tables for structured information (naming conventions, environment mappings)
 - Match the project's own documentation style (check existing docs for tone, casing, formatting)
+- **Link to existing docs** rather than duplicating -- if a repo already has a coding style guide, link to it instead of copying its content into AGENTS.md
 - Always include the Pre-PR Verification section with these rules:
   - Must run build and tests before opening/updating a PR
   - Do not silently ignore failures -- surface errors to the developer
@@ -168,6 +212,7 @@ Keep it minimal -- all substance goes in AGENTS.md.
 After generating both files, present a summary of what was generated:
 - List the sections included in AGENTS.md
 - Call out any sections you skipped and why
+- Note any existing AI config files that were consolidated and recommend removal
 - Ask if they want to adjust anything before committing
 
 ## Updating Existing Files (`--update`)

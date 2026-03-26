@@ -74,6 +74,12 @@ Additional files (Python scripts, reference docs, config templates) are placed a
 3. Add supporting files (scripts, references) as needed
 4. Update the root `README.md` to list the new skill
 
+**Local development must use Git worktrees.** Multiple agents may work in the same repository concurrently, so always create a worktree before making changes to avoid conflicts:
+
+```bash
+git worktree add .claude/worktrees/<branch-name> -b <branch-name>
+```
+
 **Testing a skill locally:**
 - Symlink the skill directory into `~/.claude/skills/` or a project's `.claude/skills/`
 - Invoke via its slash command in Claude Code to verify behavior

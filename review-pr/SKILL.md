@@ -309,4 +309,7 @@ This phase is triggered when the reviewer asks to recheck an updated PR, **or** 
    - Whether previous findings have been addressed
    - Any new issues introduced in the update
    - Any existing reviewer comments that are now resolved or still open
-6. **Present updated findings** following the same Phase 6 workflow.
+6. **Close addressed threads** — for any previously-posted findings that have been addressed in the new iteration, ask the reviewer which threads to close. Use `AskUserQuestion` with a multi-select list of addressed threads (showing thread ID, finding summary, and how it was addressed). Only close threads the reviewer explicitly approves. Use the platform-specific method to close them:
+   - **Azure DevOps**: PATCH the thread with `{"status": "closed"}`
+   - **GitHub**: Post a reply acknowledging the fix, or delete if preferred
+7. **Present updated findings** following the same Phase 6 workflow.

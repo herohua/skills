@@ -115,9 +115,9 @@ When reviewing renames:
 
 When posting inline comments, the `line` parameter refers to different things per platform:
 - **GitHub**: The `line` is the **line number in the file** (not the diff hunk position). Use `side: "RIGHT"` for new file lines, `side: "LEFT"` for old file lines.
-- **Azure DevOps**: The `rightFileStart.line` / `rightFileEnd.line` in `threadContext` are **1-based line numbers in the file**. Map from the unified diff hunk header (`@@ -old,count +new,count @@`) to compute the correct file line.
+- **Azure DevOps**: The `rightFileStart.line` / `rightFileEnd.line` in `threadContext` are **1-based line numbers in the file**.
 
-Always verify the line content matches your finding before posting — off-by-one errors in line mapping cause comments to appear on the wrong line.
+**Do NOT estimate line numbers from diff hunk headers** (e.g., `@@ -181,4 +198,31 @@`). Hunk headers show approximate ranges and are misleading — they don't account for surrounding context lines, doc comments, or blank lines between the hunk boundary and your target code. Instead, always verify the exact line number by running `cat -n` or `grep -n` on the downloaded source file before posting. For example, to comment on `internal bool IsOriginalContentChanged(...)`, run `grep -n 'IsOriginalContentChanged' /tmp/pr-review/source/File.cs` rather than guessing from the diff. Getting this wrong causes comments to appear on the wrong line (e.g., on a doc comment instead of the method signature).
 
 ---
 

@@ -237,3 +237,4 @@ curl -s -u ":$TOKEN" \
     - Read the `Retry-After` response header (value in seconds) and wait before retrying.
     - Cache iteration and file-download results so repeated reviews of the same PR don’t re-fetch unchanged data.
     - When posting multiple comments, add a brief delay (1–2 s) between requests to stay under burst limits.
+12. **Verify line numbers against the source file, not the diff**: Diff hunk headers (e.g., `@@ -181,4 +198,31 @@`) show approximate ranges and can be misleading — they don’t account for surrounding context lines, doc comments, or blank lines. Before setting `rightFileStart.line` / `rightFileEnd.line` in a thread context, run `cat -n /tmp/pr-review/source/{file}` or `grep -n ‘{target code}’ /tmp/pr-review/source/{file}` to confirm the exact line number. Getting this wrong causes comments to appear on the wrong line (e.g., on a doc comment instead of the method signature).

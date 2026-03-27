@@ -208,15 +208,35 @@ Enforcement states:
 
 **Before creating any policy**, verify the target branch exists on the repository (see Branch Validation). Skip non-existent branches and report them.
 
-### Step 2: Determine Status Name
+### Step 2: Determine Status Genre
 
-Code coverage status follows the naming convention: `{pipeline-name}/codecoverage`
+Code coverage status follows the naming convention: `{genre}/codecoverage`
 
-If `--pipeline` is not specified:
-1. Look up build definitions for the repo via the build definitions API (filter by `repositoryId`).
-2. If a build validation policy already exists on the target branch, use the pipeline name from that build definition (most reliable — it's the pipeline that actually runs on PRs).
-3. If multiple PR pipelines exist, prefer the one named `*-PullRequest` or `*-pullrequest`.
-4. If ambiguous, ask the user to choose.
+The genre is determined by the pipeline definition name, but **each pipeline has its own naming convention**. Common variations:
+- `myrepo-pullrequest` (most common)
+- `myrepo-pr` (shorter suffix)
+- `myrepo.pullrequest` (dot separator)
+- `myrepo-pullrequest-gatebuild` (extra qualifier)
+
+**Never guess the genre.** Always look it up from actual PR statuses:
+
+1. Query up to 5 recent PRs on the target branch
+2. Check each PR's statuses for `context.name == "codecoverage"`
+3. Use the `context.genre` from the matching status
+
+```bash
+# Find the actual genre from recent PR statuses
+curl -s -u ":$TOKEN" \
+  "$ORG/{project}/_apis/git/repositories/{repoId}/pullrequests?searchCriteria.targetRefName=refs/heads/{branch}&searchCriteria.status=all&\$top=5&api-version=7.1"
+# Then for each PR:
+curl -s -u ":$TOKEN" \
+  "$ORG/{project}/_apis/git/repositories/{repoId}/pullrequests/{prId}/statuses?api-version=7.1"
+# Filter for context.name == "codecoverage" and extract context.genre
+```
+
+If no codecoverage genre is found in any recent PR, **skip the repo** and report it to the user. Do not fall back to guessing.
+
+If `--pipeline` is explicitly specified by the user, use that value as the genre.
 
 ### Step 3: Resolve Policy Type ID
 
@@ -450,8 +470,8 @@ If no action is provided, present options:
 - **Authentication failure**: Guide user through `az login` and ensure they have `Edit policies` permission on the repository
 - **Policy type not found**: The status policy type ID varies by org. Always query the types API first.
 - **Policy creation fails with 403**: User lacks `Edit policies` permissions. They need Project Admin or explicit policy edit permissions.
-- **Status name mismatch**: If the policy is created but never evaluates, verify the `statusGenre/statusName` matches what the pipeline posts. The naming convention is `{pipeline-name}/codecoverage`.
-- **Coverage status stuck**: Common causes include incorrect branch policy name format, using PublishCodeCoverage V1 instead of V2, PRs with 100+ files, or multiple coverage policies configured.
+- **Status name mismatch / genre mismatch**: If the policy is created but never evaluates (stuck as "Pending"), the `statusGenre` doesn't match what the pipeline posts. Never guess the genre — always look it up from recent PR statuses. Common variations: `-pullrequest`, `-pr`, `.pullrequest`, `-pullrequest-gatebuild`. Fix by querying `GET /pullrequests/{prId}/statuses`, finding the `codecoverage` context genre, and updating the policy to match.
+- **Coverage status stuck**: Common causes include genre mismatch (most frequent), using PublishCodeCoverage V1 instead of V2, PRs with 100+ files, or multiple coverage policies configured.
 - **Non-existent branch**: Always validate branch existence before creating/enforcing policies. Skip and report non-existent branches.
 
 ---

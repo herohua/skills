@@ -45,7 +45,32 @@ TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975
 
 Azure DevOps does NOT have a general-purpose batch API for policy operations. To handle multiple repos efficiently:
 
-### Fetch-once, process-locally pattern
+### Per-repo policy query (preferred for targeted operations)
+
+When you already know which repos to operate on (e.g., from a CSV or candidate list), query policies per repo instead of fetching all policies:
+
+```bash
+# Query policies for a specific repo + branch + type
+curl -s -u ":$TOKEN" \
+  "$ORG/{project}/_apis/policy/configurations?repositoryId={repoId}&refName=refs/heads/{branch}&policyType={statusTypeId}&api-version=7.1"
+```
+
+**Critical pitfall**: The `repositoryId` filter returns policies scoped to OTHER repos too. You MUST verify each returned policy's `settings.scope[].repositoryId` actually matches the target repo (or is `null` for project-wide):
+
+```python
+# Filter for policies actually scoped to this repo
+for p in resp['value']:
+    settings = p.get('settings') or {}
+    if 'codecoverage' not in (settings.get('statusName') or '').lower():
+        continue
+    for scope in settings.get('scope', []):
+        scope_rid = scope.get('repositoryId')
+        if scope_rid == target_repo_id or scope_rid is None:
+            # This policy actually applies to our repo
+            matching_policies.append(p)
+```
+
+### Fetch-once, process-locally pattern (for broad surveys)
 
 1. **Fetch all data in a single Bash call**: Download repos list, all policy configurations, and policy types to local temp files in one Bash invocation (one token fetch, three parallel curls).
 2. **Process with Python**: Use a single Python script to cross-reference repos, policies, branches, and produce results.
@@ -275,6 +300,59 @@ Apply the requested changes. Common update scenarios:
 - **Change blocking/enabled**: Modify `isBlocking` or `isEnabled` on the policy object.
 - **Add path filters**: Add or modify `filenamePatterns` in `settings` to exclude doc-only PRs. If the policy has no `filenamePatterns` (or an empty array), add the default filter: `["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]`.
 - **Change `invalidateOnSourceUpdate`**: Modify in `settings`.
+
+**Important — normalize all settings on update**: When updating an existing policy, don't just flip `isBlocking`/`isEnabled`. Many legacy policies have suboptimal defaults. Always normalize:
+- `isEnabled`: `true`
+- `isBlocking`: `true` (or as requested)
+- `invalidateOnSourceUpdate`: `true`
+- `displayName`: `"Code Coverage Policy"`
+- `filenamePatterns`: `["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]` (unless `--no-path-filter`)
+
+### Helper script pattern for JSON manipulation
+
+**Do NOT use inline `python -c "..."` in bash for policy JSON manipulation.** The `!` character in `filenamePatterns` (e.g., `!*.md`) gets escaped to `\!` by bash, corrupting the data. Instead, use a separate Python helper script:
+
+```python
+# policy_helper.py
+import json, sys
+
+READONLY_FIELDS = ['createdBy', 'createdDate', '_links', 'revision', 'url', 'id']
+FILENAME_PATTERNS = ["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]
+
+def update(get_file, put_file):
+    p = json.load(open(get_file))
+    p['isEnabled'] = True
+    p['isBlocking'] = True
+    s = p.setdefault('settings', {})
+    s['invalidateOnSourceUpdate'] = True
+    s['displayName'] = 'Code Coverage Policy'
+    s['filenamePatterns'] = FILENAME_PATTERNS
+    for k in READONLY_FIELDS:
+        p.pop(k, None)
+    json.dump(p, open(put_file, 'w'))
+
+def create(payload_file, type_id, genre, repo_id, branch):
+    payload = {
+        'isEnabled': True, 'isBlocking': True,
+        'type': {'id': type_id},
+        'settings': {
+            'statusName': 'codecoverage', 'statusGenre': genre,
+            'authorId': '', 'invalidateOnSourceUpdate': True,
+            'displayName': 'Code Coverage Policy',
+            'filenamePatterns': FILENAME_PATTERNS,
+            'scope': [{'repositoryId': repo_id,
+                        'refName': f'refs/heads/{branch}',
+                        'matchKind': 'Exact'}]
+        }
+    }
+    json.dump(payload, open(payload_file, 'w'))
+```
+
+Then call from bash:
+```bash
+python "$WORKDIR/policy_helper.py" update "$GET_FILE" "$PUT_FILE"
+python "$WORKDIR/policy_helper.py" create "$PAYLOAD_FILE" "$TYPE_ID" "$GENRE" "$REPO_ID" "$BRANCH"
+```
 
 Write the modified JSON to a file in the working directory, then PUT:
 

@@ -81,8 +81,12 @@ curl -s -u ":$TOKEN" \
 
 Optional query parameters:
 - `policyType={typeId}` — Filter by policy type GUID
+- `repositoryId={repoId}` — Filter by repository (see pitfall below)
+- `refName=refs/heads/{branch}` — Filter by branch
 - `$top={n}` — Max results
-- `continuationToken={token}` — Pagination
+- `continuationToken={token}` — Pagination (returned in `x-ms-continuationtoken` response **header**, not in the JSON body)
+
+**Pitfall — `repositoryId` filter returns unrelated policies**: The `repositoryId` query parameter does NOT exclusively return policies scoped to that repo. It also returns policies scoped to *other* repos. You MUST verify each returned policy's `settings.scope[].repositoryId` actually matches your target repo (or is `null` for project-wide policies). Failure to do this will cause you to update the wrong policy.
 
 Response: `value[]` array of `PolicyConfiguration` objects:
 ```json
@@ -373,3 +377,8 @@ Example response for a non-existent branch:
 11. **`/tmp/` not shared between bash and Python on Windows**: Bash `/tmp/` resolves differently than Python on Windows. Use absolute paths with forward slashes that both can resolve (e.g., `/path/to/workdir/`).
 12. **`jq` may not be available on Windows**: Use `python -c "..."` for JSON processing instead of `jq`.
 13. **Validate branches before setting policies**: Always check that a branch exists via the refs API before creating or enforcing policies on it. Skip non-existent branches and report them to the user.
+14. **`repositoryId` filter returns unrelated policies**: The policy configurations API's `repositoryId` query parameter returns policies scoped to OTHER repos too. Always verify `settings.scope[].repositoryId` matches your target repo before updating.
+15. **Continuation token is in response header**: When paginating policy configurations, the continuation token is in the `x-ms-continuationtoken` HTTP response header, NOT in the JSON body. If using `urllib`, read it from `resp.getheaders()`.
+16. **Bash `!` escaping in `python -c`**: The `!` character in strings like `!*.md` gets escaped to `\!` by bash even inside single quotes on some shells. This corrupts `filenamePatterns`. Use a separate Python helper script file instead of inline `python -c` for any logic involving `!` characters.
+17. **PUT read-only fields**: When updating a policy via PUT, remove ALL read-only fields: `createdBy`, `createdDate`, `_links`, `revision`, `url`, AND `id`. The `id` field is also read-only and causes errors if included.
+18. **Update should normalize all settings**: When updating an existing policy (e.g., changing `isBlocking`), also normalize other settings to the desired state: set `invalidateOnSourceUpdate=true`, `displayName`, and `filenamePatterns`. Many legacy policies have `invalidateOnSourceUpdate=false` and no `filenamePatterns`, which is suboptimal.

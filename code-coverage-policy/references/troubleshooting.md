@@ -90,6 +90,47 @@ curl -s -u ":$TOKEN" \
   jq '.value[] | select(.displayName == "Status") | .id'
 ```
 
+## Bash `!` Escaping Corrupts `filenamePatterns`
+
+**Symptom**: After creating or updating a policy via bash script, the `filenamePatterns` in Azure DevOps show `\!*.md` instead of `!*.md`, causing the exclusion patterns to not work.
+
+**Cause**: Bash (especially on Windows) treats `!` as a history expansion character. Even inside single quotes, `!` can get escaped to `\!` in certain contexts (inline `python -c`, heredocs, variable assignments).
+
+**Solution**: Never pass `!` through bash. Use a separate Python helper script that hardcodes the patterns:
+
+```python
+# policy_helper.py
+FILENAME_PATTERNS = ["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]
+
+def update(get_file, put_file):
+    p = json.load(open(get_file))
+    p['isEnabled'] = True
+    p['isBlocking'] = True
+    s = p.setdefault('settings', {})
+    s['filenamePatterns'] = FILENAME_PATTERNS
+    # ... other settings ...
+    json.dump(p, open(put_file, 'w'))
+```
+
+Then call from bash: `python policy_helper.py update "$GET_FILE" "$PUT_FILE"`
+
+**If already corrupted**: Re-fetch the policy, run it through the helper script, and PUT it back. Verify the stored patterns are correct by GETting the policy again.
+
+## PUT Update Fails or Silently Ignores Changes
+
+**Symptom**: PUT request returns 200 but the policy isn't updated, or returns 400/500.
+
+**Cause**: The request body contains read-only fields that ADO rejects or ignores.
+
+**Solution**: Remove these read-only fields before PUT:
+```python
+READONLY_FIELDS = ['createdBy', 'createdDate', '_links', 'revision', 'url', 'id']
+for k in READONLY_FIELDS:
+    policy.pop(k, None)
+```
+
+Note: `id` must also be removed — it's in the URL path already and including it in the body can cause conflicts.
+
 ## Coverage Report Shows Inaccurate Numbers
 
 **Symptom**: Numbers in the Code Coverage tab don't match expectations.

@@ -29,12 +29,25 @@ Common issues and solutions when working with code coverage branch policies in A
 
 **Causes & Solutions**:
 
-1. **Incorrect branch policy name format**: The `statusGenre` in the policy must exactly match the pipeline name. No extra spaces or characters. Verify with:
+1. **Genre mismatch between policy and pipeline**: The `statusGenre` in the policy must exactly match the genre that the pipeline posts. Each pipeline has its own naming convention — it is NOT always `{repo-name}-pullrequest`. Common variations include:
+   - `myrepo-pullrequest` (most common)
+   - `myrepo-pr` (some repos use shorter suffix)
+   - `myrepo-pullrequest-gatebuild` (some repos append extra qualifier)
+   - `myrepo.pullrequest` (dot instead of dash separator)
+
+   **Never guess the genre.** Always look it up from actual PR statuses:
    ```bash
-   # Check what status the pipeline actually posts
+   # Find the actual genre from recent PR statuses
    curl -s -u ":$TOKEN" \
-     "https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repoId}/pullrequests/{prId}/statuses?api-version=7.1"
+     "https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repoId}/pullrequests/{prId}/statuses?api-version=7.1" \
+     | python -c "
+   import json, sys
+   for s in json.load(sys.stdin).get('value', []):
+       ctx = s.get('context', {})
+       if ctx.get('name','').lower() == 'codecoverage':
+           print(f'genre={ctx.get(\"genre\")}')"
    ```
+   If building automation, query up to 5 recent PRs to find the codecoverage genre. If no genre is found, skip the repo rather than guessing.
 
 2. **Using PublishCodeCoverage V1**: Upgrade to V2.
 

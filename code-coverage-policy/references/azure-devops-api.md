@@ -367,7 +367,7 @@ Example response for a non-existent branch:
 1. **Token per Bash call**: On Windows, re-fetch `TOKEN` at the top of every Bash tool invocation.
 2. **PUT replaces entire config**: When updating a policy, always GET first, modify, then PUT. Don't send partial configs.
 3. **Status policy type ID varies**: Always query `/policy/types` first. Don't hardcode the Status type GUID.
-4. **Status name convention**: Code coverage status is posted as `{pipeline-name}/codecoverage`. The `statusGenre` must match the pipeline name exactly.
+4. **Status name convention**: Code coverage status is posted as `{pipeline-name}/codecoverage`. The `statusGenre` must match the pipeline name exactly. **Never guess the genre** — each pipeline uses its own convention (e.g., `-pullrequest`, `-pr`, `.pullrequest`, `-pullrequest-gatebuild`). Always look up the actual genre from recent PR statuses (see pitfall #19).
 5. **WebFetch fails on Azure DevOps**: URLs redirect to sign-in. Use `az` CLI or `curl` with token.
 6. **JSON payload escaping**: Always write JSON to a temp file and use `curl -d @file.json`. Use heredoc with single-quoted delimiter (`<< 'JSONEOF'`) to avoid bash variable expansion.
 7. **No status create CLI command**: Status check policies cannot be created via `az repos policy`. Use the REST API directly.
@@ -382,3 +382,4 @@ Example response for a non-existent branch:
 16. **Bash `!` escaping in `python -c`**: The `!` character in strings like `!*.md` gets escaped to `\!` by bash even inside single quotes on some shells. This corrupts `filenamePatterns`. Use a separate Python helper script file instead of inline `python -c` for any logic involving `!` characters.
 17. **PUT read-only fields**: When updating a policy via PUT, remove ALL read-only fields: `createdBy`, `createdDate`, `_links`, `revision`, `url`, AND `id`. The `id` field is also read-only and causes errors if included.
 18. **Update should normalize all settings**: When updating an existing policy (e.g., changing `isBlocking`), also normalize other settings to the desired state: set `invalidateOnSourceUpdate=true`, `displayName`, and `filenamePatterns`. Many legacy policies have `invalidateOnSourceUpdate=false` and no `filenamePatterns`, which is suboptimal.
+19. **Genre mismatch causes stuck policies**: When creating a new policy, never hardcode or guess the `statusGenre` (e.g., `{repo}-pullrequest`). Each pipeline has its own naming convention — common variations include `-pullrequest`, `-pr`, `.pullrequest`, `-pullrequest-gatebuild`. Always look up the actual genre from recent PR statuses by querying `GET /pullrequests/{prId}/statuses` and filtering for `context.name == "codecoverage"`. If no codecoverage genre is found in recent PRs, skip the repo rather than guessing.

@@ -185,16 +185,29 @@ If tests fail, investigate and fix the failures.
 
 Report back:
 - Which fixes were applied successfully
+- Test results (pass/fail, with failure details if any)
 - Any test failures and how they were resolved
 - Any fixes you could not apply (with reason)
 
-Do NOT make changes beyond the listed fixes. Do NOT refactor or improve
-surrounding code.
+Do NOT make changes beyond the listed fixes and test-failure fixes.
+Do NOT refactor or improve surrounding code.
 ```
+
+#### Step 4: Verify tests independently (coordinator)
+
+After the fix agent completes, the coordinator re-runs the test suite independently via Bash. This is an independent verification — do not trust the fix agent's self-reported test results alone.
+
+```bash
+<test-command>
+```
+
+If tests fail, spawn the fix agent again with the failure output and ask it to fix them. Re-run tests after. Repeat until tests pass or escalate to the user via `AskUserQuestion`.
+
+Log the test results for each round.
 
 Log the fix agent's results: what was changed, which file/line, and why.
 
-#### Step 4: Check exit conditions
+#### Step 5: Check exit conditions
 
 Exit the loop if ANY of these conditions are met:
 - The review agent returned "No new issues found"
@@ -210,7 +223,7 @@ If exiting, proceed to Phase 3. Otherwise, loop back to Step 1.
 
 After the loop completes:
 
-1. **Run the test suite one final time** to confirm all changes work together. If tests fail, fix the failures before proceeding.
+1. **Run the test suite** (via Bash) as a final independent verification. If tests fail, spawn the fix agent with the failure details, then re-run tests. Repeat until tests pass or escalate to the user via `AskUserQuestion`.
 2. Check if any files were modified: `git status`
 3. If changes exist:
    - Show the user a summary of all fixes applied across all rounds, with file paths and descriptions

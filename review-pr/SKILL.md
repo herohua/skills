@@ -175,44 +175,14 @@ Summarize existing feedback so you can check against it in Phase 5:
 
 For each changed file, read the **full source version** (not just diff hunks) to understand context. If a full repo clone was obtained in Phase 3, use it to explore callers, related files, and broader architectural context via `Agent` subagents (`subagent_type: Explore`).
 
-### Review Checklist
+### Review Checklist & Verification
 
-**Bug categories:**
-- Syntax/typo errors (mismatched brackets, wrong string formats)
-- Logic errors (wrong conditions, off-by-one, dead code paths)
-- Missing null/error handling at system boundaries
-- Breaking changes to public/internal APIs
-- Resource leaks (unclosed connections, missing dispose)
+Read `references/review-checklist.md` (relative to this skill's directory) for the full review checklist, severity levels, verification discipline, and output format. Apply it to every changed file.
 
-**Design categories:**
-- Code duplication that risks drift (DRY violations)
-- Unnecessary complexity (redundant calls, over-engineering)
-- Inconsistency with existing codebase patterns
-- Poor naming or misleading abstractions
-
-**Process categories:**
-- TODO/HACK/NOT YET comments that should be resolved pre-merge
-- Test coverage gaps (check pipeline status if available)
-- Unrelated changes mixed into the PR
-- Configuration or secret exposure
-
-**Security categories:**
-- Hardcoded credentials, API keys, or tokens (check for strings that look like secrets)
-- SQL injection: string concatenation in database queries instead of parameterized queries
-- XSS: unescaped user input rendered in HTML/templates
-- Path traversal: user-controlled input used in file paths without sanitization
-- Insecure deserialization: deserializing untrusted data without validation
-- Missing authentication/authorization checks on new endpoints
-- Sensitive data exposure: PII or secrets logged, returned in error messages, or stored unencrypted
-
-### Verification Discipline
-
-**For every potential finding, you MUST verify all three conditions:**
-1. **In the diff**: The issue is in lines actually changed by this PR (merge-base comparison). Check the diff output — if the line exists in both base and source versions, it is NOT a PR change.
-2. **Not already flagged**: Compare against existing reviewer comments from Phase 4.
-3. **Real issue**: Not a misunderstanding of codebase context. When uncertain, read surrounding code for clarification. If you have the full repo, trace callers and dependencies to confirm.
-
-If any condition fails, **discard the finding**. False positives erode reviewer trust.
+Key points:
+- Check for bugs, design issues, process issues, and security vulnerabilities
+- **Verify every finding** passes all three conditions: in the diff, not already flagged, and a real issue
+- Discard findings that fail any condition — false positives erode reviewer trust
 
 ---
 

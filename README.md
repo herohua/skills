@@ -11,6 +11,7 @@ Personal collection of reusable skills for AI coding agents — designed for [Cl
 | [repo-agents-setup](./repo-agents-setup/) | Generate or update AGENTS.md and CLAUDE.md for a repository |
 | [review-design](./review-design/) | Interactive design document review against a codebase |
 | [review-pr](./review-pr/) | Interactive PR code review with merge-base diff, supports Azure DevOps and GitHub |
+| [self-review](./self-review/) | Automated self-review loop: spawns a read-only reviewer, triages findings, fixes issues, iterates until clean |
 | [sync-skills](./sync-skills/) | Sync official and personal Claude Code skills with overlap checks and safe overwrite rules |
 | [threat-model](./threat-model/) | Update Microsoft Threat Modeling Tool (.tm7) files with STRIDE analysis |
 
@@ -52,6 +53,8 @@ Once installed, invoke skills as slash commands in Claude Code:
 /review-design C:\path\to\design-doc.htm --pr develop
 /review-pr https://dev.azure.com/org/project/_git/repo/pullrequest/12345
 /review-pr https://github.com/owner/repo/pull/42 --post-as "Your Name"
+/self-review
+/self-review D:\path\to\repo --max-rounds 5
 /sync-skills
 /threat-model C:\path\to\model.tm7
 ```

@@ -1,13 +1,21 @@
 ---
 name: self-review
 description: Automated self-review loop for code changes. Accepts a PR URL, a local git repo path, or defaults to the current directory. Spawns a fresh review agent (with no prior context) to find bugs, design issues, and code quality problems, then triages findings, fixes valid issues, and iterates until the review is clean. Use this skill when the user wants to self-review their PR or branch, do an automated code review cycle, have Claude review and fix its own code, or iterate on code quality before requesting human review. Invoke with /self-review [pr-url-or-repo-path] [--max-rounds <N>]
-allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion, Edit, Write
+allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion
 user-invocable: true
 ---
 
 # Self-Review Skill
 
-You are running an automated self-review loop: spawn a fresh reviewer agent, triage its findings, fix what's valid, and repeat until the code is clean.
+You are the **coordinator** of an automated self-review loop. You orchestrate two specialized agents, triage findings, interact with the user, and manage the iteration lifecycle.
+
+## Agent Architecture
+
+| Agent | Type | Role | Can modify files? |
+|-------|------|------|-------------------|
+| **Coordinator** (you) | main | Orchestrate loop, triage findings, interact with user, gate exits, commit | No (only via fix agent) |
+| **Review agent** | `Explore` | Analyze diff, report findings | No (read-only) |
+| **Fix agent** | `general-purpose` | Apply code fixes, run tests | Yes |
 
 The key insight is that the review agent has **zero context** about prior decisions — it reviews the diff cold, just like a human reviewer seeing the code for the first time. This surfaces issues that the author (you, with full context) might overlook due to familiarity bias.
 
@@ -123,9 +131,11 @@ For each finding, provide:
 - Suggested fix if applicable
 ```
 
-#### Step 2: Triage findings
+#### Step 2: Triage findings (coordinator)
 
-For each finding returned by the review agent, classify it into one of:
+The coordinator (you) triages each finding. This is your job — not the review agent's or the fix agent's — because triage requires conversation context, knowledge of prior design decisions, and user interaction.
+
+For each finding, classify it into one of:
 
 | Verdict | Criteria | Action |
 |---------|----------|--------|
@@ -153,14 +163,36 @@ Present the triage to the user as a summary table:
 | 4 | design | Qux.cs:7 | Perf concern | Uncertain | Asked user |
 ```
 
-#### Step 3: Apply fixes (main agent)
+#### Step 3: Spawn the fix agent
 
-For findings marked **Fix**, the main agent (you — not the review agent) applies the changes:
-1. Read the relevant file(s) to understand the full context before editing.
-2. Apply the code change using Edit tool.
-3. Log each fix: what was changed, which file/line, and why.
+If there are findings marked **Fix**, launch a **general-purpose** Agent to apply them. The fix agent has full read-write access. Give it the specific list of fixes to apply — nothing more.
 
-After all fixes in this round are applied, run the test suite once (look for `dotnet test`, `npm test`, `pytest`, `cargo test`, `go test`, `make test`, etc.). If tests fail, investigate and fix the failures before moving to Step 4.
+Prompt for the fix agent:
+
+```
+You are a code fix agent. Apply the following fixes to the git repository
+at <repo-path>. For each fix, read the relevant file to understand context,
+then apply the change.
+
+Fixes to apply:
+<numbered list of findings marked Fix, each with file, line, description,
+and suggested fix>
+
+After applying all fixes, run the test suite:
+<test-command, e.g. dotnet test, npm test, pytest, etc.>
+
+If tests fail, investigate and fix the failures.
+
+Report back:
+- Which fixes were applied successfully
+- Any test failures and how they were resolved
+- Any fixes you could not apply (with reason)
+
+Do NOT make changes beyond the listed fixes. Do NOT refactor or improve
+surrounding code.
+```
+
+Log the fix agent's results: what was changed, which file/line, and why.
 
 #### Step 4: Check exit conditions
 

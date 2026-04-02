@@ -126,7 +126,7 @@ say "No new issues found."
 
 For each finding, provide:
 - File path and line number
-- Severity: bug, design, style, nit, process, security
+- Severity: bug, security, design, process, nit
 - Description of the issue
 - Suggested fix if applicable
 ```

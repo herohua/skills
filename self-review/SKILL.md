@@ -219,13 +219,12 @@ If exiting, proceed to Phase 3. Otherwise, loop back to Step 1.
 
 ---
 
-## Phase 3: Verify and Commit
+## Phase 3: Commit
 
-After the loop completes:
+After the loop completes (tests already verified in Step 4 of each round):
 
-1. **Run the test suite** (via Bash) as a final independent verification. If tests fail, spawn the fix agent with the failure details, then re-run tests. Repeat until tests pass or escalate to the user via `AskUserQuestion`.
-2. Check if any files were modified: `git status`
-3. If changes exist:
+1. Check if any files were modified: `git status`
+2. If changes exist:
    - Show the user a summary of all fixes applied across all rounds, with file paths and descriptions
    - Use `AskUserQuestion` to ask what to do:
      - **"Commit and push"**: Stage changed files, commit with a descriptive message, and push

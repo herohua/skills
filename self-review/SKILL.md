@@ -158,9 +158,9 @@ Present the triage to the user as a summary table:
 For findings marked **Fix**, the main agent (you — not the review agent) applies the changes:
 1. Read the relevant file(s) to understand the full context before editing.
 2. Apply the code change using Edit tool.
-3. Run tests if a test command is discoverable in the repo (look for `dotnet test`, `npm test`, `pytest`, `cargo test`, `go test`, `make test`, etc.).
-4. If tests fail, investigate and fix the failure before proceeding.
-5. Log each fix: what was changed, which file/line, and why.
+3. Log each fix: what was changed, which file/line, and why.
+
+After all fixes in this round are applied, run the test suite once (look for `dotnet test`, `npm test`, `pytest`, `cargo test`, `go test`, `make test`, etc.). If tests fail, investigate and fix the failures before moving to Step 4.
 
 #### Step 4: Check exit conditions
 
@@ -174,12 +174,13 @@ If exiting, proceed to Phase 3. Otherwise, loop back to Step 1.
 
 ---
 
-## Phase 3: Commit and Push
+## Phase 3: Verify and Commit
 
 After the loop completes:
 
-1. Check if any files were modified: `git status`
-2. If changes exist:
+1. **Run the test suite one final time** to confirm all changes work together. If tests fail, fix the failures before proceeding.
+2. Check if any files were modified: `git status`
+3. If changes exist:
    - Show the user a summary of all fixes applied across all rounds, with file paths and descriptions
    - Use `AskUserQuestion` to ask what to do:
      - **"Commit and push"**: Stage changed files, commit with a descriptive message, and push

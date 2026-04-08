@@ -2,6 +2,8 @@
 
 Quick reference for API calls used during PR review. All calls require authentication via personal access token or `az` CLI token.
 
+> **MCP alternative**: When the `azure-devops` MCP server is available, many operations below (PR metadata, thread fetch/post/reply/resolve, code search) can use MCP tools instead — see `azure-devops-mcp.md`. This file remains the authoritative reference for curl-based operations and is self-contained for environments without MCP.
+
 ## Authentication
 
 ```bash
@@ -22,6 +24,8 @@ ORG="https://dev.azure.com/{organization}"
 ```
 
 ## PR Metadata
+
+> **MCP alternative**: Use `repo_get_repo_by_name_or_id` then `repo_get_pull_request_by_id` — see `azure-devops-mcp.md`.
 
 ```bash
 # Via az CLI (preferred for initial metadata)
@@ -130,6 +134,8 @@ git clone --depth 1 --single-branch --branch {sourceBranch} \
 ```
 
 ## PR Threads (Comments)
+
+> **MCP alternative**: Use `repo_list_pull_request_threads`, `repo_create_pull_request_thread`, `repo_reply_to_comment`, and `repo_resolve_comment` — see `azure-devops-mcp.md`. The curl approach below is still needed for posting inline comments with `iterationContext` and for closing/hiding accidental threads.
 
 ### Fetch existing threads
 ```bash

@@ -113,12 +113,7 @@ curl -s -u ":$TOKEN" \
 
 ### Binary File Detection
 
-The Items API returns raw file content. Detect and skip binary files to avoid corrupted diffs:
-- Check the HTTP `Content-Type` response header — binary files return `application/octet-stream` instead of a text type.
-- Check the file extension against known binary types (`.png`, `.jpg`, `.gif`, `.ico`, `.woff`, `.woff2`, `.ttf`, `.dll`, `.exe`, `.zip`, `.pdf`, `.snk`).
-- If the downloaded content contains null bytes (`\x00`) in the first 8 KB, treat it as binary.
-
-Skip binary files during diff generation and note them in the review summary as "binary file changed — not diffed".
+Detect and skip binary files before diffing. See `review-checklist.md` § "Binary File Detection" for the full detection criteria.
 
 ## Clone Repository
 
@@ -243,4 +238,4 @@ curl -s -u ":$TOKEN" \
     - Read the `Retry-After` response header (value in seconds) and wait before retrying.
     - Cache iteration and file-download results so repeated reviews of the same PR don’t re-fetch unchanged data.
     - When posting multiple comments, add a brief delay (1–2 s) between requests to stay under burst limits.
-12. **Verify line numbers against the source file, not the diff**: Diff hunk headers (e.g., `@@ -181,4 +198,31 @@`) show approximate ranges and can be misleading — they don’t account for surrounding context lines, doc comments, or blank lines. Before setting `rightFileStart.line` / `rightFileEnd.line` in a thread context, run `cat -n /tmp/pr-review/source/{file}` or `grep -n ‘{target code}’ /tmp/pr-review/source/{file}` to confirm the exact line number. Getting this wrong causes comments to appear on the wrong line (e.g., on a doc comment instead of the method signature).
+12. **Verify line numbers against the source file, not the diff**: See `review-checklist.md` § "Line Number Verification" for full guidance. Always run `grep -n` on the downloaded source file before posting inline comments.

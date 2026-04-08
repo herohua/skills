@@ -84,7 +84,7 @@ repo_create_pull_request_thread(
 
 **`iterationContext` limitation**: The MCP tool does not support `pullRequestThreadContext.iterationContext` (`firstComparingIteration` / `secondComparingIteration`). Comments anchor to the latest iteration by default. This is safe when the freshness check (Phase 7) confirms no new iterations since analysis. If iteration pinning is required, fall back to curl — see `azure-devops-api.md`.
 
-**Line number verification**: Always verify exact line numbers by running `grep -n '{target code}' /tmp/pr-review/source/{file}` on the downloaded source file before posting. Do not estimate from diff hunk headers.
+**Line number verification**: Always verify exact line numbers against the downloaded source file before posting. See `review-checklist.md` § "Line Number Verification".
 
 ## Reply to Thread
 

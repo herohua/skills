@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: Review a pull request for bugs, design issues, and process concerns. Supports Azure DevOps and GitHub. Fetches PR metadata, computes merge-base diff, analyzes changes, presents findings interactively, and posts approved comments. Invoke with /review-pr <pr-url> [--post-as <name>]
-allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion, WebFetch
+allowed-tools: Bash, Read, Grep, Glob, Agent, AskUserQuestion, WebFetch, mcp__azure-devops__repo_get_repo_by_name_or_id, mcp__azure-devops__repo_get_pull_request_by_id, mcp__azure-devops__repo_list_pull_request_threads, mcp__azure-devops__repo_list_pull_request_thread_comments, mcp__azure-devops__repo_create_pull_request_thread, mcp__azure-devops__repo_reply_to_comment, mcp__azure-devops__repo_resolve_comment, mcp__azure-devops__search_code
 user-invocable: true
 ---
 
@@ -36,15 +36,21 @@ Parse the PR URL to determine the platform:
 
 ### Load Platform Reference
 
-Based on the detected platform, read the corresponding API reference file for detailed call patterns:
-- **Azure DevOps**: Read `references/azure-devops-api.md` (relative to this skill's directory)
+Based on the detected platform, read the corresponding API reference file(s) for detailed call patterns:
+- **Azure DevOps**: Read `references/azure-devops-mcp.md` (MCP-based operations) and `references/azure-devops-api.md` (curl-based operations for iterations, diffs, file downloads). Both are needed — MCP handles metadata and thread operations, curl handles diff computation. **If the `azure-devops` MCP server is not available** (e.g., MCP tools fail or are not configured), fall back to `azure-devops-api.md` for all operations — it is fully self-contained.
 - **GitHub**: Read `references/github-api.md` (relative to this skill's directory)
 
-Only load the reference for the detected platform — do not load both.
+Only load the reference(s) for the detected platform — do not load both platforms.
 
 ### Fetch Metadata
 
-Use the patterns from the loaded reference to fetch PR metadata. Extract:
+Use the patterns from the loaded reference to fetch PR metadata.
+
+**Azure DevOps (MCP)**: Call `repo_get_repo_by_name_or_id(project={project}, repositoryNameOrId={repoName})` to get the repo GUID, then call `repo_get_pull_request_by_id(repositoryId={repoGuid}, pullRequestId={prId})` for PR metadata. If the MCP tools are unavailable, fall back to `az repos pr show` (see `azure-devops-api.md`).
+
+**GitHub**: Use `gh pr view` as documented in `github-api.md`.
+
+Extract:
 - Title, description, status
 - Author and reviewers
 - Source and target branches
@@ -134,6 +140,16 @@ After seeing the diff and changed files, assess whether reviewing only the chang
 - **Test files missing from the diff**: Changed production code but no corresponding test file changes — may need to verify test coverage exists elsewhere
 - **Cross-project references**: Changes that span multiple projects/modules within a monorepo
 
+### Try Remote Code Search First (Azure DevOps)
+
+Before deciding to clone, try `search_code` (MCP tool) to search the remote repository for callers or references to changed interfaces/methods. This can answer questions like "are there other callers of this interface?" without a full clone.
+
+```
+search_code(searchText="IFooService.Bar", project=["{project}"], repository=["{repoName}"])
+```
+
+If the search answers the question, skip the clone entirely. If results are inconclusive or the reviewer needs deeper exploration, proceed to the clone decision below.
+
 ### Signals That Suggest Changed Files Are Sufficient
 
 - **Leaf changes**: New files, test-only changes, or modifications to code with no external callers
@@ -161,7 +177,11 @@ When prompting is needed:
 
 ## Phase 4: Fetch Existing Comments
 
-Before analyzing, fetch all existing PR threads/comments to avoid duplicate feedback. Use the patterns from the loaded platform reference.
+Before analyzing, fetch all existing PR threads/comments to avoid duplicate feedback.
+
+**Azure DevOps (MCP)**: Use `repo_list_pull_request_threads(repositoryId, pullRequestId)` to fetch threads. Use `repo_list_pull_request_thread_comments(repositoryId, pullRequestId, threadId)` for detailed comment content on specific threads. If MCP tools are unavailable, fall back to curl (see `azure-devops-api.md`).
+
+**GitHub**: Use `gh api` as documented in `github-api.md`.
 
 Summarize existing feedback so you can check against it in Phase 5:
 - Which files have comments
@@ -221,17 +241,23 @@ Do NOT ask these as separate sequential questions.
 
 ## Phase 7: Post Comments to PR
 
-For each approved finding, post an inline threaded comment using the patterns from the loaded platform reference.
+For each approved finding, post a comment using the platform-appropriate method.
+
+**Azure DevOps (MCP)**: Use `repo_create_pull_request_thread` for both inline and general comments. For inline comments, provide `filePath`, `rightFileStartLine`, `rightFileStartOffset`, `rightFileEndLine`, `rightFileEndOffset`. Omit file/line params for general comments. See `azure-devops-mcp.md` for details.
+
+**Azure DevOps (curl fallback)**: Use curl when `iterationContext` pinning is needed (see `azure-devops-api.md` for the full JSON payload with `pullRequestThreadContext.iterationContext`).
+
+**GitHub**: Use `gh api` as documented in `github-api.md`.
 
 Include the agreed attribution text at the end of each comment body.
 
 ### Comment Posting Best Practices
 
-- **Always write the JSON payload to a temp file** and use `curl -d @/tmp/pr-review/commentN.json` instead of inline `-d '...'`. Markdown content with code blocks, backticks, and special characters causes bash escaping failures with inline JSON.
-- Use heredoc with `'JSONEOF'` (single-quoted delimiter) to write the file, preventing bash variable expansion inside the JSON.
+- **Prefer MCP tools for Azure DevOps**: `repo_create_pull_request_thread` eliminates JSON escaping, token management, and temp file issues. Only fall back to curl when `iterationContext` is needed.
+- **For curl fallback**: Always write the JSON payload to a temp file and use `curl -d @/tmp/pr-review/commentN.json` instead of inline `-d '...'`. Use heredoc with `'JSONEOF'` (single-quoted delimiter) to prevent bash variable expansion.
 - Post comments **in parallel** when they target different files to save time.
-- For Azure DevOps, set `secondComparingIteration` to the **latest iteration number** so line numbers resolve correctly.
-- **Rate limiting**: When posting many comments, add a brief delay (1–2 s) between requests. For GitHub, prefer batching all comments into a single pending review (see reference). For Azure DevOps, monitor for HTTP 429 responses and respect the `Retry-After` header.
+- For Azure DevOps curl, set `secondComparingIteration` to the **latest iteration number** so line numbers resolve correctly.
+- **Rate limiting**: When posting many comments, add a brief delay (1-2 s) between requests. For GitHub, prefer batching all comments into a single pending review (see reference). For Azure DevOps, monitor for HTTP 429 responses and respect the `Retry-After` header.
 
 ### Freshness Check Before Posting
 
@@ -249,7 +275,7 @@ Report which comments were posted successfully and provide links where available
 ### Cleaning Up Mistakes
 
 If you accidentally post a test comment or wrong content:
-- **Azure DevOps**: PATCH the thread to set `"status": "closed"` to hide it.
+- **Azure DevOps (MCP)**: Use `repo_resolve_comment(repositoryId, pullRequestId, threadId)` to resolve the thread. To fully hide it, use curl to PATCH the thread with `"status": "closed"` (see `azure-devops-api.md`).
 - **GitHub**: Use `gh api` to delete the comment.
 
 ---
@@ -268,18 +294,19 @@ If you accidentally post a test comment or wrong content:
 
 This phase is triggered when the reviewer asks to recheck an updated PR, **or** when Claude detects that the PR has been updated (e.g., the freshness check in Phase 7 reveals a new iteration):
 
-1. **Re-fetch PR metadata** to get the new source commit SHA.
+1. **Re-fetch PR metadata** to get the new source commit SHA. For Azure DevOps, use `repo_get_pull_request_by_id` (MCP).
 2. **Re-fetch iterations** to find the latest iteration number and confirm the merge base hasn't changed.
 3. **Optimize the re-diff**:
    - If the merge base is unchanged, reuse the existing base file downloads.
    - Only re-download the source versions of changed files using the new source commit.
    - Compare the old source versions against the new source versions (iteration-over-iteration diff) to quickly identify **what changed between iterations** — present this delta to the reviewer first.
-4. **Re-fetch existing comments** — new review threads may have been added since the last review.
+4. **Re-fetch existing comments** — new review threads may have been added since the last review. For Azure DevOps, use `repo_list_pull_request_threads` (MCP).
 5. **Re-analyze** with the updated diffs. Previously-posted findings that are still valid do not need to be re-posted. Focus on:
    - Whether previous findings have been addressed
    - Any new issues introduced in the update
    - Any existing reviewer comments that are now resolved or still open
 6. **Close addressed threads** — for any previously-posted findings that have been addressed in the new iteration, ask the reviewer which threads to close. Use `AskUserQuestion` with a multi-select list of addressed threads (showing thread ID, finding summary, and how it was addressed). Only close threads the reviewer explicitly approves. Use the platform-specific method to close them:
-   - **Azure DevOps**: PATCH the thread with `{"status": "closed"}`
+   - **Azure DevOps (MCP)**: Use `repo_resolve_comment(repositoryId, pullRequestId, threadId)` to resolve. Use `repo_reply_to_comment` to add a note acknowledging the fix before resolving.
+   - **Azure DevOps (curl)**: PATCH the thread with `{"status": "closed"}` for full hide
    - **GitHub**: Post a reply acknowledging the fix, or delete if preferred
 7. **Present updated findings** following the same Phase 6 workflow.

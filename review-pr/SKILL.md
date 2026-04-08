@@ -100,12 +100,7 @@ For PRs with 300+ changed files:
 
 ### Binary File Detection
 
-Before generating diffs, detect and skip binary files:
-- Check file extensions against known binary types (`.png`, `.jpg`, `.gif`, `.ico`, `.woff`, `.woff2`, `.ttf`, `.dll`, `.exe`, `.zip`, `.pdf`, `.snk`).
-- Check HTTP response content-type headers when downloading (binary files return `application/octet-stream`).
-- If file content contains null bytes in the first 8 KB, treat it as binary.
-
-Note binary files in the review summary as "binary file changed — not diffed".
+Before generating diffs, detect and skip binary files. See `references/review-checklist.md` § "Binary File Detection" for the full detection criteria and known binary extensions.
 
 ### File Rename and Move Semantics
 
@@ -156,9 +151,19 @@ If the search answers the question, skip the clone entirely. If results are inco
 - **Self-contained features**: New endpoint/handler added with its own tests
 - **Configuration/docs only**: Changes to config files, docs, or build scripts
 
+### Auto-Skip Patterns
+
+The following change patterns are reliably self-contained. When **all** changed files match these patterns, state your reasoning in one line and proceed to Phase 4 without prompting:
+
+- **New model/DTO classes**: Files that only define a data class with properties and no behavior. These have no callers until wired in by other changed files already in the diff.
+- **Additive method changes**: A method gains a new parameter with a default value, or a new overload is added — callers are unaffected.
+- **Test-only changes**: New or modified test files with no production code changes.
+- **Config/docs only**: Changes to `.md`, `.json`, `.yml`, `.csproj` config, or build scripts.
+- **Wiring + tests included**: The PR includes both the new code and its integration point (e.g., DI registration + service + tests), making the change set self-contained.
+
 ### Decision Workflow
 
-If the assessment is **clear-cut** (e.g., changes are leaf nodes with no external callers, tests are included, no shared utilities modified), state your reasoning briefly and proceed without prompting. Only use `AskUserQuestion` when the decision is genuinely ambiguous.
+If the assessment is **clear-cut** (changes match auto-skip patterns, or are leaf nodes with no external callers), state your reasoning briefly and proceed without prompting. Only use `AskUserQuestion` when the decision is genuinely ambiguous.
 
 When prompting is needed:
 1. Present your assessment to the reviewer with reasoning:
@@ -188,6 +193,20 @@ Summarize existing feedback so you can check against it in Phase 5:
 - What issues were raised
 - Who raised them
 - Thread status (active, resolved, etc.)
+
+### Stale Comment Detection
+
+PRs with multiple iterations often accumulate comments — from human reviewers, AI review bots, or CI tools — that were posted on earlier iterations and may reference code that has since changed or been removed. For each existing comment:
+1. Check when the comment was posted relative to the PR iterations — if it was posted on an earlier iteration, it may be stale.
+2. If the comment references specific code (via `threadContext` file/line), verify whether that code still exists unchanged in the latest source version.
+3. Flag stale comments in your summary so the reviewer knows which existing feedback may no longer be relevant, and so you don't duplicate findings that were already raised but are now outdated.
+
+### Fetch Thread Context for Human Reviewer Comments
+
+For active threads from human reviewers, fetch the `threadContext` (file path and line range) so you know **where** the comment is anchored, not just **what** it says. This allows you to:
+- Accurately detect whether your findings overlap with existing inline comments on the same lines.
+- Avoid posting a new comment on a line that already has an active discussion thread.
+- Provide the reviewer with a richer summary of existing feedback (e.g., "2 active threads on `Foo.cs`, lines 44 and 88").
 
 ---
 

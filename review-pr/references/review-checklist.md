@@ -18,6 +18,7 @@ Apply the checklist below to every changed file. Then verify each potential find
 - Missing null/error handling at system boundaries
 - Breaking changes to public/internal APIs
 - Resource leaks (unclosed connections, missing dispose)
+- Computed properties with hidden allocations (e.g., collection expressions `[.. a, .. b]` in property getters that allocate on every access)
 
 ### Design
 - Code duplication that risks drift (DRY violations)
@@ -30,6 +31,8 @@ Apply the checklist below to every changed file. Then verify each potential find
 - Test coverage gaps (check pipeline status if available)
 - Unrelated changes mixed into the PR
 - Configuration or secret exposure
+- Doc comments (`<param>`, `<returns>`, `<summary>`) out of sync with changed method signatures
+- User-facing strings (banner messages, error messages, UI labels): check for clarity, grammar, consistency with existing messaging patterns
 
 ### Security
 - Hardcoded credentials, API keys, or tokens (check for strings that look like secrets)
@@ -82,3 +85,28 @@ For each finding, include:
 - What the issue is
 - Why it matters
 - Suggested fix (if obvious)
+
+---
+
+## Binary File Detection
+
+Before generating diffs, detect and skip binary files using these checks (in order):
+
+1. **File extension**: Skip known binary types: `.png`, `.jpg`, `.jpeg`, `.gif`, `.ico`, `.bmp`, `.webp`, `.svg`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`, `.dll`, `.exe`, `.zip`, `.tar`, `.gz`, `.pdf`, `.snk`, `.p12`, `.pfx`.
+2. **HTTP Content-Type**: When downloading files via API, binary files return `application/octet-stream` instead of a text type.
+3. **Null byte check**: If the downloaded content contains null bytes (`\x00`) in the first 8 KB, treat it as binary.
+
+Note binary files in the review summary as "binary file changed — not diffed".
+
+---
+
+## Line Number Verification
+
+**Do NOT estimate line numbers from diff hunk headers** (e.g., `@@ -181,4 +198,31 @@`). Hunk headers show approximate ranges and are misleading — they don't account for surrounding context lines, doc comments, or blank lines between the hunk boundary and your target code.
+
+Before posting an inline comment, always verify the exact line number by running `cat -n` or `grep -n` on the downloaded source file. For example:
+```bash
+grep -n 'IsOriginalContentChanged' /tmp/pr-review/source/File.cs
+```
+
+Getting this wrong causes comments to appear on the wrong line (e.g., on a doc comment instead of the method signature).

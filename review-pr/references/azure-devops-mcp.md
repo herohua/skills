@@ -82,6 +82,23 @@ repo_create_pull_request_thread(
 )
 ```
 
+### IMPORTANT: Set Thread Status After Posting
+
+The MCP `repo_create_pull_request_thread` tool does **not** support a `status` parameter. Threads created via MCP have no status, which Azure DevOps renders as **"Unknown"** in the UI. This looks unprofessional and confusing to reviewers.
+
+**After every `repo_create_pull_request_thread` call**, immediately PATCH the thread to set `"status": 1` (Active):
+
+```bash
+TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+curl -s -u ":$TOKEN" -X PATCH -H "Content-Type: application/json" \
+  "$ORG/$PROJECT_ID/_apis/git/repositories/$REPO_ID/pullrequests/{prId}/threads/{threadId}?api-version=7.0" \
+  -d '{"status": 1}'
+```
+
+Extract `{threadId}` from the `id` field in the MCP response. This is a lightweight call and should be done for every posted thread.
+
+**Alternative**: Use the curl-based posting method from `azure-devops-api.md` instead of MCP, which includes `"status": 1` in the JSON body directly.
+
 **`iterationContext` limitation**: The MCP tool does not support `pullRequestThreadContext.iterationContext` (`firstComparingIteration` / `secondComparingIteration`). Comments anchor to the latest iteration by default. This is safe when the freshness check (Phase 7) confirms no new iterations since analysis. If iteration pinning is required, fall back to curl — see `azure-devops-api.md`.
 
 **Line number verification**: Always verify exact line numbers against the downloaded source file before posting. See `review-checklist.md` § "Line Number Verification".
@@ -130,3 +147,4 @@ Use in Phase 3 to check for callers of changed interfaces or methods without clo
 3. **Resolve vs close**: `repo_resolve_comment` resolves threads (status=4), not closes them (status=2). Use curl for hiding accidental comments.
 4. **`filePath` requires leading `/`**: Always prefix file paths with `/` (e.g., `/src/Foo/Bar.cs`).
 5. **`project` parameter**: Some MCP tools accept an optional `project` parameter. When provided, use the project name (not the GUID).
+6. **Threads created without status show as "Unknown"**: `repo_create_pull_request_thread` does not set a thread status. Azure DevOps renders these as "Unknown" in the UI. Always PATCH the thread to `"status": 1` (Active) immediately after creation — see "Set Thread Status After Posting" above.

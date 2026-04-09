@@ -18,6 +18,7 @@ Apply the checklist below to every changed file. Then verify each potential find
 - Missing null/error handling at system boundaries
 - Breaking changes to public/internal APIs
 - Resource leaks (unclosed connections, missing dispose)
+- Computed properties with hidden allocations (e.g., collection expressions `[.. a, .. b]` in property getters that allocate on every access)
 
 ### Design
 - Code duplication that risks drift (DRY violations)
@@ -30,6 +31,8 @@ Apply the checklist below to every changed file. Then verify each potential find
 - Test coverage gaps (check pipeline status if available)
 - Unrelated changes mixed into the PR
 - Configuration or secret exposure
+- Doc comments (`<param>`, `<returns>`, `<summary>`) out of sync with changed method signatures
+- User-facing strings (banner messages, error messages, UI labels): check for clarity, grammar, consistency with existing messaging patterns
 
 ### Security
 - Hardcoded credentials, API keys, or tokens (check for strings that look like secrets)

@@ -41,6 +41,7 @@ Additional files (Python scripts, reference docs, config templates) are placed a
 ### Design Guidance
 
 - **Build upon existing skills, MCPs, or tools** — before creating new functionality, check if an existing skill, MCP server, or Claude Code tool already provides what you need, and compose on top of it
+- **Prefer MCP tools over CLI/curl for Azure DevOps operations** — MCP tools have fixed parameter schemas, so permission approval carries over across invocations. Bash commands (`az`, `curl`) are freeform strings that require the user to approve each unique command separately. Only fall back to CLI or curl when MCP doesn't cover the needed API.
 
 ### Coding Conventions
 

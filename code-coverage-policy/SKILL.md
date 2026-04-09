@@ -1,7 +1,7 @@
 ---
 name: code-coverage-policy
-description: Check and update branch policies for code coverage on Azure DevOps repositories. Lists existing policies, adds code coverage status check policies, updates policy settings (blocking/enabled/threshold), and configures the azurepipelines-coverage.yml file. Supports bulk operations across multiple repos. Invoke with /code-coverage-policy <action> [options]. Actions: check, add, update, configure-yaml.
-allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, AskUserQuestion, mcp__plugin_microsoft-docs_microsoft-learn__microsoft_docs_search, mcp__plugin_microsoft-docs_microsoft-learn__microsoft_docs_fetch
+description: Check and update Azure DevOps branch policies for code coverage. Lists existing policies, adds code coverage status check policies, updates policy settings (blocking/enabled/threshold), and configures the azurepipelines-coverage.yml file. Supports bulk operations across multiple repos. Invoke with /code-coverage-policy <action> [options]. Actions: check, add, update, configure-yaml.
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, AskUserQuestion
 user-invocable: true
 ---
 

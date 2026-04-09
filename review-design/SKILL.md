@@ -1,6 +1,6 @@
 ---
 name: review-design
-description: Review a design document against the current codebase. Reads design docs, explores the codebase for context, collaborates with the reviewer to align on key points, then generates a structured review. Invoke with /review-design <path-to-document> [--output <output-dir>] [--pr <target-branch>]
+description: Review a design document against the current codebase. Reads design docs (supports .htm, .md, .pdf, .docx), explores the codebase for context, collaborates with the reviewer to align on key points, then generates a structured review. Invoke with /review-design <path-to-document> [--output <output-dir>] [--pr <target-branch>]
 allowed-tools: Read, Grep, Glob, Bash, Agent, Write, Edit, AskUserQuestion
 user-invocable: true
 ---
@@ -50,7 +50,7 @@ Launch **parallel** Agent subagent searches (`subagent_type: Explore`) to gather
 Do NOT duplicate searches — each agent should cover a distinct area.
 
 ### Cost Optimization
-- Use `subagent_type: Explore` agents (haiku-based) for codebase search
+- Use `subagent_type: Explore` agents for codebase search
 - Parallelize all independent searches
 - Use Grep/Glob to find relevant sections first, only Read when needed
 

@@ -16,7 +16,7 @@ Common issues and solutions when working with code coverage branch policies in A
      status:
        comments: on
        diff:
-         target: 70%
+         target: 60%
    ```
 
 3. **Pipeline hasn't run yet**: The status is only posted after a pipeline run that publishes coverage.
@@ -29,31 +29,17 @@ Common issues and solutions when working with code coverage branch policies in A
 
 **Causes & Solutions**:
 
-1. **Genre mismatch between policy and pipeline**: The `statusGenre` in the policy must exactly match the genre that the pipeline posts. Each pipeline has its own naming convention — it is NOT always `{repo-name}-pullrequest`. Common variations include:
-   - `myrepo-pullrequest` (most common)
-   - `myrepo-pr` (some repos use shorter suffix)
-   - `myrepo-pullrequest-gatebuild` (some repos append extra qualifier)
-   - `myrepo.pullrequest` (dot instead of dash separator)
-
-   **Never guess the genre.** Always look it up from actual PR statuses:
+1. **Incorrect branch policy name format**: The `statusGenre` in the policy must exactly match the pipeline name. Verify with:
    ```bash
-   # Find the actual genre from recent PR statuses
-   curl -s -u ":$TOKEN" \
-     "https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repoId}/pullrequests/{prId}/statuses?api-version=7.1" \
-     | python -c "
-   import json, sys
-   for s in json.load(sys.stdin).get('value', []):
-       ctx = s.get('context', {})
-       if ctx.get('name','').lower() == 'codecoverage':
-           print(f'genre={ctx.get(\"genre\")}')"
+   curl -s -H "Authorization: Bearer $TOKEN" \
+     "https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repoId}/pullrequests/{prId}/statuses?api-version=7.1"
    ```
-   If building automation, query up to 5 recent PRs to find the codecoverage genre. If no genre is found, skip the repo rather than guessing.
 
 2. **Using PublishCodeCoverage V1**: Upgrade to V2.
 
 3. **Too many files in PR**: If the PR has more than 100 files, the coverage policy may get stuck.
 
-4. **Multiple coverage policies**: If you configure multiple coverage policies for the same scope, one gets stuck. Keep only one.
+4. **Multiple coverage policies**: If you have multiple coverage policies for the same scope, one gets stuck. Keep only one.
 
 ## 0% Diff Coverage Despite Adding Tests
 
@@ -85,64 +71,16 @@ Common issues and solutions when working with code coverage branch policies in A
 - **Project Administrators** group membership
 - Repository-level **Edit policies** permission
 
-To check permissions:
-```bash
-# List security namespaces (for reference)
-curl -s -u ":$TOKEN" \
-  "https://dev.azure.com/{org}/_apis/securitynamespaces?api-version=7.1"
-```
-
 ## Status Type ID Mismatch
 
 **Symptom**: Policy creation fails or policy doesn't match any status.
 
-**Solution**: Always query the policy types API to get the correct Status type ID for your org:
+**Solution**: Always query the policy types API to get the correct Status type ID:
 ```bash
-curl -s -u ":$TOKEN" \
-  "https://dev.azure.com/{org}/{project}/_apis/policy/types?api-version=7.1" | \
-  jq '.value[] | select(.displayName == "Status") | .id'
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://dev.azure.com/{org}/{project}/_apis/policy/types?api-version=7.1"
 ```
-
-## Bash `!` Escaping Corrupts `filenamePatterns`
-
-**Symptom**: After creating or updating a policy via bash script, the `filenamePatterns` in Azure DevOps show `\!*.md` instead of `!*.md`, causing the exclusion patterns to not work.
-
-**Cause**: Bash (especially on Windows) treats `!` as a history expansion character. Even inside single quotes, `!` can get escaped to `\!` in certain contexts (inline `python -c`, heredocs, variable assignments).
-
-**Solution**: Never pass `!` through bash. Use a separate Python helper script that hardcodes the patterns:
-
-```python
-# policy_helper.py
-FILENAME_PATTERNS = ["/*", "!*.md", "!*.yml", "!*.yaml", "!/docs/*"]
-
-def update(get_file, put_file):
-    p = json.load(open(get_file))
-    p['isEnabled'] = True
-    p['isBlocking'] = True
-    s = p.setdefault('settings', {})
-    s['filenamePatterns'] = FILENAME_PATTERNS
-    # ... other settings ...
-    json.dump(p, open(put_file, 'w'))
-```
-
-Then call from bash: `python policy_helper.py update "$GET_FILE" "$PUT_FILE"`
-
-**If already corrupted**: Re-fetch the policy, run it through the helper script, and PUT it back. Verify the stored patterns are correct by GETting the policy again.
-
-## PUT Update Fails or Silently Ignores Changes
-
-**Symptom**: PUT request returns 200 but the policy isn't updated, or returns 400/500.
-
-**Cause**: The request body contains read-only fields that ADO rejects or ignores.
-
-**Solution**: Remove these read-only fields before PUT:
-```python
-READONLY_FIELDS = ['createdBy', 'createdDate', '_links', 'revision', 'url', 'id']
-for k in READONLY_FIELDS:
-    policy.pop(k, None)
-```
-
-Note: `id` must also be removed — it's in the URL path already and including it in the body can cause conflicts.
+Look for `displayName == "Status"` and use its `id`.
 
 ## Coverage Report Shows Inaccurate Numbers
 
@@ -167,7 +105,7 @@ coverage:
     comments: on | off
 
     diff:
-      # Diff coverage target percentage (default: 70%)
+      # Diff coverage target percentage (default: 60%)
       target: 60%
 ```
 

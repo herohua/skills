@@ -307,6 +307,13 @@ html = f"""<!DOCTYPE html>
   }}
   .bug-table tr:last-child td {{ border-bottom: none; }}
   .bug-table tr:hover td {{ background: #f9f9fb; }}
+  .bug-table tr.priority-row-0 td {{ background: #fef2f2; }}
+  .bug-table tr.priority-row-0:hover td {{ background: #fee2e2; }}
+  .bug-table tr.priority-row-1 td {{ background: #fffbeb; }}
+  .bug-table tr.priority-row-1:hover td {{ background: #fef3c7; }}
+  body.filter-p01 .bug-table tr:not(.priority-row-0):not(.priority-row-1) {{ display: none; }}
+  body.filter-p01 .category-section.empty-after-filter {{ display: none; }}
+  .controls button.active {{ background: #0078d4; color: white; border-color: #0078d4; }}
   .bug-id {{
     font-family: 'Cascadia Code', monospace;
     font-weight: 600;
@@ -517,9 +524,22 @@ html += """  </div>
 
 <!-- Controls -->
 <div class="controls">
+  <button id="filterP01Btn" onclick="togglePriorityFilter()">Show only P0/P1</button>
   <button onclick="document.querySelectorAll('.category-section').forEach(s=>s.classList.remove('collapsed'))">Expand All</button>
   <button onclick="document.querySelectorAll('.category-section').forEach(s=>s.classList.add('collapsed'))">Collapse All</button>
 </div>
+<script>
+function togglePriorityFilter() {
+  var on = document.body.classList.toggle('filter-p01');
+  var btn = document.getElementById('filterP01Btn');
+  btn.classList.toggle('active', on);
+  btn.textContent = on ? 'Show all priorities' : 'Show only P0/P1';
+  document.querySelectorAll('.category-section').forEach(function(sec){
+    var visibleRows = sec.querySelectorAll('tbody tr.priority-row-0, tbody tr.priority-row-1');
+    sec.classList.toggle('empty-after-filter', on && visibleRows.length === 0);
+  });
+}
+</script>
 
 """
 
@@ -586,7 +606,7 @@ for i, cat in enumerate(sorted_cats):
         # Suggested category label
         suggested_label = '<span class="suggested-label">(suggested)</span>' if bug.get("suggested") else ""
 
-        html += f"""      <tr>
+        html += f"""      <tr class="priority-row-{bug['priority'] if bug['priority'] in [0,1,2,3] else 'na'}">
         <td class="bug-id"><a href="{bug['url']}" target="_blank">{bug['id']}</a></td>
         <td class="bug-title">{display_title}{suggested_label}</td>
         <td><span class="state-badge" style="background:{state_color}">{bug['state']}</span></td>

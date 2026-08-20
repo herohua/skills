@@ -19,7 +19,7 @@ herohua-skills/
     └── scripts/                      # Optional: supporting scripts (.py, .ps1, .js, ...)
 ```
 
-Current skills: `bug-report`, `code-coverage-policy`, `repo-agents-setup`, `review-design`, `review-pr`, `self-review`, `sync-skills`, `threat-model`.
+Current skills: `bug-report`, `code-coverage-policy`, `coding-agents-setup`, `repo-agents-setup`, `review-design`, `review-pr`, `self-review`, `sync-skills`, `threat-model`.
 
 ---
 

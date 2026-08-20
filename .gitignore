@@ -18,3 +18,7 @@ Desktop.ini
 # Temp files
 *.tmp
 *.bak
+
+# Python
+__pycache__/
+*.py[cod]

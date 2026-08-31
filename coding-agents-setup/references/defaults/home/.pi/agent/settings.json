@@ -1,0 +1,25 @@
+{
+  "defaultProvider": "local-proxy",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "theme": "dark",
+  "npmCommand": [
+    "npm",
+    "--allow-remote=all"
+  ],
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:pi-web-access",
+    "npm:pi-subagents"
+  ],
+  "hideThinkingBlock": true,
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "enableInstallTelemetry": false,
+  "defaultProjectTrust": "always",
+  "subagents": {
+    "defaultProvider": "local-proxy",
+    "defaultModel": "gpt-5.6-luna",
+    "defaultThinking": "high"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: coding-agents-setup
-description: Install, configure, update, audit, or repair coding-agent tools on a developer machine. Use for Codex CLI, GitHub Copilot CLI, Claude Code, Pi, OpenCode, Agent Maestro proxy routing, shared MCP servers, shared agent skills, subagent model mappings, and opt-in autopilot or YOLO modes.
+description: Install, configure, update, audit, or repair coding-agent tools on a developer machine. Use for Codex CLI, GitHub Copilot CLI, Claude Code, Pi, OpenCode, Agent Maestro proxy routing, portable personal defaults, shared MCP servers, shared agent skills, subagent model mappings, and opt-in autopilot or YOLO modes.
 allowed-tools: Bash, Read, Grep, Glob, AskUserQuestion, Write, Edit
 user-invocable: true
 ---
@@ -9,7 +9,7 @@ user-invocable: true
 
 Set up and maintain a consistent personal coding-agent environment. Support Windows first, then macOS and Linux where the same package managers and paths apply.
 
-Read [references/configuration.md](references/configuration.md) before changing configuration. Use [scripts/setup_coding_agents.py](scripts/setup_coding_agents.py) to generate or apply deterministic configuration.
+Read [references/configuration.md](references/configuration.md) and [references/defaults/README.md](references/defaults/README.md) before changing configuration. The four files under `references/defaults/home/` are the canonical sanitized personal profile. Use them as merge inputs, not replacements. Use [scripts/setup_coding_agents.py](scripts/setup_coding_agents.py) to generate or apply deterministic configuration.
 
 ## Defaults
 
@@ -17,6 +17,8 @@ Read [references/configuration.md](references/configuration.md) before changing 
 - VS Code extensions: Agent Maestro and GitHub Copilot.
 - Primary model: `gpt-5.6-sol` with `high` reasoning/thinking.
 - Proxy: Agent Maestro at `http://127.0.0.1:23333`.
+- Portable profile: merge the bundled Claude Code, Codex, and Pi defaults after validating the installed client schemas and available models.
+- Pi packages: `pi-mcp-adapter`, `pi-web-access`, and `pi-subagents`.
 - Shared MCP servers: Microsoft Learn and Figma.
 - Shared skill: `grill-me` from `robmitt/grill-me-skill`, managed with the Vercel `skills` CLI via `npx skills`.
 - Optional desktop apps: ChatGPT and GitHub Copilot app.
@@ -54,6 +56,7 @@ Reject unknown switches instead of guessing. Reject install-only switches such a
    - `~/.pi/agent/settings.json`, `models.json`, `mcp.json`, `agents/`, and installed extension schemas
    - `~/.config/opencode/opencode.json` and `agents/`
    - `~/.config/mcp/mcp.json` and agent-specific skill directories reported by `npx skills list --global`
+   Compare the stable preferences in these files with `references/defaults/home/`. Do not treat intentionally excluded generated state as drift.
 5. Check `http://127.0.0.1:<port>/openapi.json` and `/api/v1/info`. If unavailable, ask the user to open VS Code, install/enable Agent Maestro, and run **Agent Maestro: Start API Server**.
 6. Discover models from `GET /api/v1/lm/chatModels`, not only `/api/anthropic/v1/models` (the latter can legitimately return an empty list). Match by model ID and record `vendor`, `family`, image/tool capabilities, and `maxInputTokens`. Duplicate IDs can be exposed by both `copilot` and `copilotcli`; preserve which entry supplied the limits.
 7. Verify the requested model through Agent Maestro/VS Code. Prefer Agent Maestro's one-click Codex and Claude configuration commands when available because they record exact context-window metadata and Claude's required `[1m]` suffix.
@@ -97,6 +100,14 @@ Prefer each tool's existing official installation channel. Do not pipe remote sc
 
 Require Node.js 22.19 or newer only for npm-based installs and `npx skills`; native Codex, Copilot, and Claude installs do not need to be replaced merely because they are not in global npm. Before installing, compare `command -v`/`where.exe`, package-manager inventory, and tool doctor output to avoid duplicate binaries.
 
+For a fresh Pi install or confirmed repair, install the packages in the portable profile:
+
+```bash
+pi install npm:pi-mcp-adapter
+pi install npm:pi-web-access
+pi install npm:pi-subagents
+```
+
 Install VS Code extensions when `code` is available and the user wants VS Code Copilot itself. Agent Maestro can also receive models from other registered VS Code LM providers (for example Copilot CLI), so a missing `GitHub.copilot` extension is not by itself a proxy failure:
 
 ```bash
@@ -133,6 +144,8 @@ When VS Code is interactive, ask the user to run:
 
 Then merge the remaining settings from the generated plan. If one-click commands are unavailable, use the templates in the reference and script.
 
+For install or repair, also merge compatible stable preferences from `references/defaults/home/`. Never copy the files wholesale: preserve unrelated settings, validate plugin availability, and leave the profile's unrestricted settings for the separately confirmed autonomy phase.
+
 For Copilot CLI, inspect `copilot help providers`. Current versions can route through Agent Maestro using `COPILOT_PROVIDER_BASE_URL=http://127.0.0.1:<port>/api/openai/v1`, `COPILOT_PROVIDER_TYPE=openai`, `COPILOT_PROVIDER_WIRE_API=responses`, `COPILOT_MODEL=<model>`, and discovered prompt/output limits. Configure these in the user's shell environment or a private launcher, not in repository files. Use the Agent Maestro API key only through `COPILOT_PROVIDER_BEARER_TOKEN` when proxy authentication is enabled.
 
 ## Phase 4: Configure Models and Subagents
@@ -155,7 +168,7 @@ Configure native subagents where supported:
 - Claude Code: `~/.claude/agents/*.md`, using the proxy model ID and role-appropriate `effort`.
 - OpenCode: global `agent` entries with `mode`, `model`, `reasoningEffort`, and permissions.
 - Copilot CLI: inspect `copilot help providers`. Current versions support Agent Maestro through BYOK environment variables. Custom agents may use `--agent`; if per-agent model selection is unavailable, document that subagents inherit the selected session model.
-- Pi: Pi has no built-in generic subagent manifest, but its bundled example subagent extension uses `~/.pi/agent/agents/*.md`. If that extension is detected, read its installed `README.md`/`agents.ts`, install user-level agent definitions, and use model selectors in the form `provider/model:thinking` (for example `agent-maestro/gpt-5.6-terra:high`, or the preserved provider ID on an existing setup). Map `worker`→Sol/high, `planner` and `reviewer`→Terra/high, and `scout`→Luna/low. Ensure the configured extension and prompt paths still exist after Pi updates. Do not invent a mapping for a different extension.
+- Pi: If `pi-subagents` is installed, read its installed documentation and schema before changing the `subagents` settings object. On a fresh setup, use the portable profile's `local-proxy` provider ID with Luna/high as the subagent default. Preserve another existing working provider ID, but keep `subagents.defaultProvider` synchronized with the provider that actually exposes the configured models. Use `subagents.agentOverrides` for role-specific mappings; do not invent settings for a different extension.
 
 ## Phase 5: Install Shared MCP Servers and Skills
 
@@ -180,7 +193,7 @@ Default MCP endpoints:
 }
 ```
 
-Pi needs `pi-mcp-adapter` to consume shared MCP config:
+Pi needs the profile's `pi-mcp-adapter` package to consume shared MCP config. If it was not installed during Phase 2:
 
 ```bash
 pi install npm:pi-mcp-adapter
@@ -230,6 +243,8 @@ Do not claim full autonomy where a client, organization policy, OAuth prompt, OS
 4. Write atomically through a temporary file and rename.
 5. Do not modify repository-scoped configuration unless explicitly requested.
 6. Keep secrets out of logs, diffs, shell history, and generated reports.
+7. Merge stable preferences not owned by the helper from `references/defaults/home/`, including client UI choices, plugins, Pi packages, model aliases, and shell environment policy. Validate each key against the installed client version.
+8. Apply the profile's Codex unrestricted mode, Claude Code `auto` permission mode, and Pi automatic project trust only when `--autopilot` was requested and confirmed.
 
 Example:
 
@@ -254,6 +269,7 @@ Verify:
 - Figma is configured; report `authentication pending` until OAuth completes.
 - `npx skills list --global --json` and `~/.agents/.skill-lock.json` show `grill-me`. The CLI may report Codex, GitHub Copilot, and OpenCode as `universal` consumers of the canonical `~/.agents/skills` copy while listing explicit symlinks only for Claude Code and Pi; verify discovery in each client rather than requiring five displayed links.
 - Native subagents resolve to existing models and honor read-only/write permissions.
+- Pi's `subagents.defaultProvider` names the same provider used by its installed proxy models.
 - Autonomy settings match the exact confirmed level.
 
 Report a table with `component`, `version`, `model/provider`, `MCP`, `skills`, `autonomy`, and `status`. Include changed and backup paths. Clearly identify manual follow-up actions and unsupported capabilities.

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Use these templates as a compatibility baseline. Client schemas change; inspect installed help/schema and preserve existing values before applying them.
+Use these templates as a compatibility baseline. The canonical sanitized personal profile is under [defaults/home](defaults/home), with application and omission rules in [defaults/README.md](defaults/README.md). Client schemas change; inspect installed help/schema and preserve existing values before applying them.
 
 ## Agent Maestro
 
@@ -22,9 +22,11 @@ Merge into `~/.codex/config.toml`:
 ```toml
 model = "gpt-5.6-sol"
 model_provider = "agent-maestro"
+model_context_window = 921793
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
+approvals_reviewer = "user"
 
 [model_providers.agent-maestro]
 name = "Agent Maestro"
@@ -32,7 +34,7 @@ base_url = "http://127.0.0.1:23333/api/openai/v1"
 wire_api = "responses"
 
 [agents]
-default_subagent_model = "gpt-5.6-sol"
+default_subagent_model = "gpt-5.6-luna"
 default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 6
 ```
@@ -101,10 +103,12 @@ Review like an owner. Lead with concrete findings and cite files and symbols.
 
 ## Pi
 
-Install MCP support:
+Install the portable profile's Pi packages:
 
 ```bash
 pi install npm:pi-mcp-adapter
+pi install npm:pi-web-access
+pi install npm:pi-subagents
 ```
 
 Merge into `~/.pi/agent/models.json`:
@@ -112,10 +116,10 @@ Merge into `~/.pi/agent/models.json`:
 ```json
 {
   "providers": {
-    "agent-maestro": {
+    "local-proxy": {
       "baseUrl": "http://127.0.0.1:23333/api/openai/v1",
       "api": "openai-completions",
-      "apiKey": "agent-maestro-local",
+      "apiKey": "local-proxy",
       "compat": {
         "supportsDeveloperRole": true,
         "supportsReasoningEffort": true,
@@ -125,11 +129,11 @@ Merge into `~/.pi/agent/models.json`:
       "models": [
         {
           "id": "gpt-5.6-sol",
-          "name": "GPT-5.6 Sol via Agent Maestro",
+          "name": "GPT-5.6 Sol (Local Proxy)",
           "reasoning": true,
           "input": ["text", "image"],
           "contextWindow": 921793,
-          "maxTokens": 128000,
+          "maxTokens": 921793,
           "thinkingLevelMap": {
             "off": "none",
             "minimal": null,
@@ -142,11 +146,11 @@ Merge into `~/.pi/agent/models.json`:
         },
         {
           "id": "gpt-5.6-terra",
-          "name": "GPT-5.6 Terra via Agent Maestro",
+          "name": "GPT-5.6 Terra (Local Proxy)",
           "reasoning": true,
           "input": ["text", "image"],
           "contextWindow": 921793,
-          "maxTokens": 128000,
+          "maxTokens": 921793,
           "thinkingLevelMap": {
             "off": "none",
             "minimal": null,
@@ -159,11 +163,11 @@ Merge into `~/.pi/agent/models.json`:
         },
         {
           "id": "gpt-5.6-luna",
-          "name": "GPT-5.6 Luna via Agent Maestro",
+          "name": "GPT-5.6 Luna (Local Proxy)",
           "reasoning": true,
           "input": ["text", "image"],
           "contextWindow": 921793,
-          "maxTokens": 128000,
+          "maxTokens": 921793,
           "thinkingLevelMap": {
             "off": "none",
             "minimal": null,
@@ -186,23 +190,27 @@ Merge into `~/.pi/agent/settings.json`:
 
 ```json
 {
-  "defaultProvider": "agent-maestro",
+  "defaultProvider": "local-proxy",
   "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "high",
-  "defaultProjectTrust": "ask"
+  "theme": "dark",
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:pi-web-access",
+    "npm:pi-subagents"
+  ],
+  "enableInstallTelemetry": false,
+  "defaultProjectTrust": "ask",
+  "subagents": {
+    "defaultProvider": "local-proxy",
+    "defaultModel": "gpt-5.6-luna",
+    "defaultThinking": "high"
+  }
 }
 ```
 
-`defaultProjectTrust: "always"` is an opt-in convenience setting, not a tool sandbox or permission mode. Pi's bundled example subagent extension uses `~/.pi/agent/agents/*.md` with `model: provider/model:thinking`.
-
-| Agent | Model selector |
-|---|---|
-| `worker` | `<proxy-provider>/gpt-5.6-sol:high` |
-| `planner` | `<proxy-provider>/gpt-5.6-terra:high` |
-| `reviewer` | `<proxy-provider>/gpt-5.6-terra:high` |
-| `scout` | `<proxy-provider>/gpt-5.6-luna:low` |
-
-Replace `<proxy-provider>` with the effective Pi provider ID (`agent-maestro` on a fresh setup; preserve an existing working ID such as `local-proxy`). Read the installed extension schema before applying this mapping to a different subagent extension.
+`defaultProjectTrust: "always"` is an opt-in convenience setting, not a tool sandbox or permission mode. The portable profile records it for reproducibility, but apply it only during the confirmed autonomy phase. Pi's `pi-subagents` package reads defaults from the `subagents` object in `~/.pi/agent/settings.json`.
+Use `subagents.agentOverrides` for role-specific model assignments supported by the installed package. Keep `subagents.defaultProvider` synchronized with the effective Pi provider ID (`local-proxy` on a fresh setup; preserve another existing working ID).
 
 ## OpenCode
 

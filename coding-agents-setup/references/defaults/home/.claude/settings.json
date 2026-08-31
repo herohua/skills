@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:23333/api/anthropic",
+    "ANTHROPIC_AUTH_TOKEN": "Powered by Agent Maestro",
+    "ANTHROPIC_MODEL": "gpt-5.6-sol[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_FABEL_MODEL": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.6-luna",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.6-luna",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "921793",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "gpt-5.6-sol[1m]",
+  "modelOverrides": {
+    "claude-opus-5": "gpt-5.6-sol",
+    "claude-fabel-5": "gpt-5.6-sol",
+    "claude-sonnet-5": "gpt-5.6-luna",
+    "claude-haiku-4-5-20251001": "gpt-5.6-luna",
+    "claude-haiku-5": "gpt-5.6-luna"
+  },
+  "enabledPlugins": {
+    "figma@claude-plugins-official": true
+  },
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "high",
+  "autoUpdatesChannel": "latest",
+  "tui": "fullscreen"
+}

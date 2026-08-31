@@ -1,0 +1,76 @@
+model = "gpt-5.6-sol"
+model_provider = "agent-maestro"
+model_context_window = 921793
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+approvals_reviewer = "user"
+
+[agents]
+default_subagent_model = "gpt-5.6-luna"
+
+[model_providers.agent-maestro]
+name = "Agent Maestro"
+base_url = "http://127.0.0.1:23333/api/openai/v1"
+wire_api = "responses"
+
+[windows]
+sandbox = "unelevated"
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."gmail@openai-curated"]
+enabled = true
+
+[plugins."google-calendar@openai-curated"]
+enabled = true
+
+[plugins."slack@openai-curated"]
+enabled = true
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."codex-app-tools@openai-bundled"]
+enabled = true
+
+[plugins."computer-use@openai-bundled"]
+enabled = true
+
+[features]
+hooks = true
+js_repl = false
+
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+ANTHROPIC_BASE_URL = "http://127.0.0.1:23333/api/anthropic"
+ANTHROPIC_AUTH_TOKEN = "Powered by Agent Maestro"
+ANTHROPIC_MODEL = "gpt-5.6-sol[1m]"
+CLAUDE_CODE_AUTO_COMPACT_WINDOW = "921793"
+CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "85"
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
+CLAUDE_CODE_ATTRIBUTION_HEADER = "0"
+
+[desktop]
+external-agent-import-sync-enabled = false
+conversationDetailMode = "STEPS_COMMANDS"
+ambient-suggestions-enabled = false
+followUpQueueMode = "queue"

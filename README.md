@@ -8,7 +8,7 @@ Personal collection of reusable skills for AI coding agents — designed for [Cl
 |-------|-------------|
 | [bug-report](./bug-report/) | Refresh an ADO bug report dashboard with summary tiles, charts, and categorized bug tables |
 | [code-coverage-policy](./code-coverage-policy/) | Check and update Azure DevOps branch policies for code coverage |
-| [coding-agents-setup](./coding-agents-setup/) | Install and maintain coding-agent CLIs, Agent Maestro proxy models, subagents, MCP servers, skills, and optional autopilot modes |
+| [coding-agents-setup](./coding-agents-setup/) | Install and maintain coding-agent CLIs, portable default profiles, Agent Maestro proxy models, subagents, MCP servers, skills, and optional autopilot modes |
 | [repo-agents-setup](./repo-agents-setup/) | Generate or update AGENTS.md and CLAUDE.md for a repository |
 | [review-design](./review-design/) | Interactive design document review against a codebase |
 | [review-pr](./review-pr/) | Interactive PR code review with merge-base diff, supports Azure DevOps and GitHub |

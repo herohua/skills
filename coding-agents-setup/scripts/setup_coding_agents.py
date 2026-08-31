@@ -124,7 +124,7 @@ def pi_models(
     context_window: int,
     max_tokens: int,
 ) -> dict[str, Any]:
-    api_key = f"${api_key_env}" if api_key_env else "agent-maestro-local"
+    api_key = f"${api_key_env}" if api_key_env else provider_id
     return {
         "providers": {
             provider_id: {
@@ -200,7 +200,7 @@ def detect_pi_provider_id(home: Path, port: int) -> str:
         return current
     if len(matches) == 1:
         return matches[0]
-    return "agent-maestro"
+    return "local-proxy"
 
 
 def opencode_settings(
